@@ -6,6 +6,17 @@ A predictor for LVO non LVO
 Install mne:
     pip install mne
 
+
+
+# Instruction to run
+1. Download the data from the above file
+2. Create virtual environment (pipenv)
+3. Install the requirement package
+4. Run the preprocess
+5. Run the training
+
+
+
 # How to run the Preprocessing 
 
 * Have a folder data in the home directory within which we have another folder 115 which contains all participants (./data/115)
@@ -19,4 +30,3 @@ Install mne:
 * Wait a minute or so
 
 * data should be in ecg clean
-
