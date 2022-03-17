@@ -13,9 +13,6 @@ class CustomTrainDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        # label = self.labels[idx]
-        # data = self.clinical[idx,:]
-        # sample = {"Clinical": data, "Class": label}
         return self.clinical[idx], self.labels[idx]
 
 class CustomTestDataset(Dataset):
@@ -26,7 +23,4 @@ class CustomTestDataset(Dataset):
         return len(self.clinical)
 
     def __getitem__(self, idx):
-        # label = self.labels[idx]
-        # data = self.clinical[idx,:]
-        # sample = {"Clinical": data, "Class": label}
         return self.clinical[idx]

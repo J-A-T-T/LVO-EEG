@@ -4,7 +4,7 @@ from math import e
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
 import torch
 from utils import CustomTrainDataset, CustomTestDataset 
@@ -108,6 +108,9 @@ def main(lr, num_epoch, batch_size):
     print('Classification report')
     print(classification_report(label_test, label_pred_list))
 
+    # Accuracy for test set: 85-87%
+    print('Accuracy report')
+    print(accuracy_score(label_test, label_pred_list))
     
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
@@ -122,7 +125,7 @@ def binary_acc(y_pred, y_test):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=100, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=1000, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()
