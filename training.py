@@ -6,6 +6,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
+import shap
+
 import torch
 from utils import CustomTrainDataset, CustomTestDataset 
 import torch.nn as nn
@@ -111,6 +113,14 @@ def main(lr, num_epoch, batch_size):
     # Accuracy for test set: 85-87%
     print('Accuracy report')
     print(accuracy_score(label_test, label_pred_list))
+
+    # Provide SHAP values
+    features = df.columns.drop("lvo")
+    e = shap.GradientExplainer(model, clinical_train.to(device))
+    shap_values = pd.DataFrame(e.shap_values(clinical_test.to(device))[0])
+    print(shap_values)
+
+    # Provide 
     
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
@@ -125,7 +135,7 @@ def binary_acc(y_pred, y_test):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=1000, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=10, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()
