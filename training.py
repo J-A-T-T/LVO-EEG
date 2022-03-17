@@ -8,6 +8,8 @@ from sklearn.metrics import confusion_matrix, classification_report, accuracy_sc
 
 import shap
 
+shap.
+
 import torch
 from utils import CustomTrainDataset, CustomTestDataset 
 import torch.nn as nn
@@ -30,17 +32,17 @@ def main(lr, num_epoch, batch_size):
     result_file_name = 'result.csv'
 
     # Separate data into training, validation and testing data
-    clinical = df[['age', 'lams', 'nihss', 'time_elapsed', 'Male', 'Female']]
+    # clinical = df[['age', 'lams', 'nihss', 'time_elapsed', 'Male', 'Female']] 
+    clinical = df[['age', 'lams', 'time_elapsed', 'Male', 'Female']] # Eliminate the nihss score
+    features = clinical.columns
     label = df['lvo']
     clinical_train, clinical_test, label_train, label_test = train_test_split(clinical, label, test_size = 0.2, random_state=42)
 
 
     # Define the custom dataset
-    clinical_train = torch.FloatTensor(clinical_train.values)
-    label_train = torch.FloatTensor(label_train.values)
-    clinical_test = torch.FloatTensor(clinical_test.values)
-    train = CustomTrainDataset(clinical_train, label_train)
-    test = CustomTestDataset(clinical_test)
+
+    train = CustomTrainDataset(torch.FloatTensor(clinical_train.values), torch.FloatTensor(label_train.values))
+    test = CustomTestDataset(torch.FloatTensor(clinical_test.values))
 
     # Create DataLoader
     trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
@@ -115,12 +117,22 @@ def main(lr, num_epoch, batch_size):
     print(accuracy_score(label_test, label_pred_list))
 
     # Provide SHAP values
-    features = df.columns.drop("lvo")
-    e = shap.GradientExplainer(model, clinical_train.to(device))
-    shap_values = pd.DataFrame(e.shap_values(clinical_test.to(device))[0])
-    print(shap_values)
+    # SHAP values represent a features's responsibility for a change in the model output 
+    # e = shap.GradientExplainer(model, torch.FloatTensor(clinical_train.values).to(device))
+    # shap_values = e.shap_values(torch.FloatTensor(clinical_test.values).to(device))
+    # # print(shap_values)
+    # x_test_values = clinical_test.to_numpy()
+    # shap.summary_plot(shap_values, x_test_values, feature_names=features)
+    # shap.force_plot(e.expected_value, shap_values)
+    # ind = 0
+    # shap.force_plot(
+    #     e.expected_value, shap_values[ind,:], x_test_values[ind,:], features_name=features
+    # )
+    
+    # shap.plots.force(shap_values)
 
-    # Provide 
+    print(shap.__version__)
+    # Provide Grad-Cam
     
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
