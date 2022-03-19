@@ -8,16 +8,16 @@ from sklearn.metrics import confusion_matrix, classification_report, accuracy_sc
 
 import shap
 
-shap.
-
 import torch
-from utils import CustomTrainDataset, CustomTestDataset 
+from utils.utils import CustomTrainDataset, CustomTestDataset 
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
 
 from models.NN import NeuralNet
+
+from utils.plot_acc import plot_acc_loss
 
 def main(lr, num_epoch, batch_size):
 
@@ -38,17 +38,16 @@ def main(lr, num_epoch, batch_size):
     label = df['lvo']
     clinical_train, clinical_test, label_train, label_test = train_test_split(clinical, label, test_size = 0.2, random_state=42)
 
-
     # Define the custom dataset
-
     train = CustomTrainDataset(torch.FloatTensor(clinical_train.values), torch.FloatTensor(label_train.values))
-    test = CustomTestDataset(torch.FloatTensor(clinical_test.values))
+    # test = CustomTestDataset(torch.FloatTensor(clinical_test.values))
+    test = CustomTrainDataset(torch.FloatTensor(clinical_test.values), torch.FloatTensor(label_test.values))
 
     # Create DataLoader
     trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
     testloader = DataLoader(test, shuffle=False)
 
-    # Creat a model
+    # Create a model
     model = NeuralNet()
 
     # Training on GPU if possible
@@ -62,9 +61,13 @@ def main(lr, num_epoch, batch_size):
 
     # Train the model on training data
     model.train() 
+    train_accs = []
+    test_accs = []
+    train_losses = []
+    test_losses = []
     for epoch in range(1, epochs+1):
-        epoch_loss = 0
-        epoch_acc = 0
+        train_loss = 0
+        train_acc = 0
         
         for (idx, batch) in enumerate(trainloader):
             inputs, labels = batch[0], batch[1]
@@ -83,56 +86,75 @@ def main(lr, num_epoch, batch_size):
             loss.backward()
             optimizer.step()
 
-            epoch_loss += loss.item()
-            epoch_acc += acc.item()
+            train_loss += loss.item()
+            train_acc += acc.item()
         
-        print('Epoch {}: | Loss: {} | Acc: {}'.format(epoch, epoch_loss/len(trainloader), epoch_acc/len(trainloader)))
 
-    print("Finished training")
+        # Test the model 
+        label_pred_list = []
+        model.eval()
+        test_loss = 0
+        test_acc = 0
+        with torch.no_grad():
+            for (idx, data) in enumerate(testloader):
+                test_inputs, test_labels = data[0], data[1]
+                test_inputs = test_inputs.to(device)
+                test_labels = test_labels.to(device)
+                
+                test_outputs = model(test_inputs)
+                
+                loss = criterion(test_outputs, test_labels.unsqueeze(1))
+                acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
+                
+                test_loss += loss.item()
+                test_acc += acc.item()
+
+        print('Epoch {}: | Train Acc: {} | Test Acc: {}'.format(epoch, train_acc/len(trainloader), test_acc/len(testloader)))
+        train_accs.append(train_acc/len(trainloader))
+        train_losses.append(train_loss/len(trainloader))
+        test_accs.append(test_acc/len(testloader))
+        test_losses.append(test_loss/len(testloader))
+
+    # Save model
     torch.save(model.state_dict(), PATH)
 
+    # Plot the accuracy and loss
+    plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
+
+    # Plot the 
     # Test the model 
+    # label_pred_list = []
+    # model.eval()
+    # with torch.no_grad():
+    #     for inputs in testloader:
+    #         inputs = inputs.to(device)
+    #         label_test_pred = model(inputs)
+    #         label_pred_tag = torch.round(label_test_pred)
+    #         label_pred_list.append(label_pred_tag.cpu().numpy())
 
-    label_pred_list = []
-    model.eval()
-    with torch.no_grad():
-        for inputs in testloader:
-            inputs = inputs.to(device)
-            label_test_pred = model(inputs)
-            label_pred_tag = torch.round(label_test_pred)
-            label_pred_list.append(label_pred_tag.cpu().numpy())
-
-    label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
-
-    # Classification report
+    # label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
+    # # Classification report
     
-    print('Confusion matrix')
-    print(confusion_matrix(label_test, label_pred_list))
+    # print('Confusion matrix')
+    # print(confusion_matrix(label_test, label_pred_list))
 
-    print('Classification report')
-    print(classification_report(label_test, label_pred_list))
+    # print('Classification report')
+    # print(classification_report(label_test, label_pred_list))
 
-    # Accuracy for test set: 85-87%
-    print('Accuracy report')
-    print(accuracy_score(label_test, label_pred_list))
+    # # Accuracy for test set: 85-87%
+    # print('Accuracy report')
+    # print(accuracy_score(label_test, label_pred_list))
 
-    # Provide SHAP values
+    # Provide SHAP values: Try other explainer than GradientExplainer
     # SHAP values represent a features's responsibility for a change in the model output 
-    # e = shap.GradientExplainer(model, torch.FloatTensor(clinical_train.values).to(device))
-    # shap_values = e.shap_values(torch.FloatTensor(clinical_test.values).to(device))
-    # # print(shap_values)
-    # x_test_values = clinical_test.to_numpy()
-    # shap.summary_plot(shap_values, x_test_values, feature_names=features)
-    # shap.force_plot(e.expected_value, shap_values)
-    # ind = 0
-    # shap.force_plot(
-    #     e.expected_value, shap_values[ind,:], x_test_values[ind,:], features_name=features
-    # )
-    
-    # shap.plots.force(shap_values)
+    e = shap.GradientExplainer(model, torch.FloatTensor(clinical_train.values).to(device))
+    shap_values = e.shap_values(torch.FloatTensor(clinical_test.values).to(device))
+    # print(shap_values)
+    x_test_values = clinical_test.to_numpy()
+    shap.summary_plot(shap_values, x_test_values, feature_names=features)
 
-    print(shap.__version__)
     # Provide Grad-Cam
+
     
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
@@ -154,4 +176,5 @@ if __name__ == "__main__":
     lr = args.lr
     num_epoch = args.num_epoch
     batch_size = args.batch_size
+
     main(lr, num_epoch, batch_size)
