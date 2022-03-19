@@ -89,7 +89,7 @@ def main(lr, epoch, batch_size, num_layer):
             # obtain the loss function
 
             loss = criterion(outputs, labels)
-            acc = binary_acc(outputs, labels.unsqueeze(1))
+            acc = binary_acc(outputs, labels)
 
             loss.backward()  # calculates the loss of the loss function
 
@@ -97,7 +97,6 @@ def main(lr, epoch, batch_size, num_layer):
 
             train_loss += loss.item()
             train_acc += acc.item()
-
 
         # lstm.eval()
         test_loss = 0
@@ -111,7 +110,7 @@ def main(lr, epoch, batch_size, num_layer):
                 test_outputs = lstm(test_inputs)
 
                 loss = criterion(test_outputs, test_labels)
-                acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
+                acc = binary_acc(test_outputs, test_labels)
 
                 test_loss += loss.item()
                 test_acc += acc.item()
@@ -145,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, required=False,
                         default=1e-4, help='Learning rate')
     parser.add_argument('--num_epoch', type=int, required=False,
-                        default=10, help='Number of epoch')
+                        default=50, help='Number of epoch')
     parser.add_argument('--batch_size', type=int,
                         required=False, default=4, help='Size of batch')
     parser.add_argument('--num_layers', type=int, required=False,

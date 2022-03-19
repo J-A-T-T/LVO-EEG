@@ -17,7 +17,8 @@ class LSTM1(nn.Module):
         self.fc = nn.Linear(128, num_classes) #fully connected last layer
 
         self.relu = nn.ReLU()
-    
+        self.sigmoid = nn.Sigmoid()
+
     def forward(self,x):
         h_0 = Variable(torch.zeros(self.num_layers, x.size(0), self.hidden_size, device=x.device)) #hidden state
         c_0 = Variable(torch.zeros(self.num_layers, x.size(0), self.hidden_size, device=x.device)) #internal state
@@ -28,5 +29,6 @@ class LSTM1(nn.Module):
         out = self.fc_1(out) #first Dense
         out = self.relu(out) #relu
         out = self.fc(out) #Final Output
+        out = self.sigmoid(out)
         return out
         
