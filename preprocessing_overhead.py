@@ -12,7 +12,6 @@ for filename in os.listdir(directory):
     f = os.path.join(directory, filename)
     # checking if it is a file
     if os.path.isfile(f):
-        print(f)
         returned_df = preprocessing.preprocess(f)
         if returned_df is not None:
             preprocessing.save_data(f, returned_df)
