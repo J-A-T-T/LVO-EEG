@@ -76,7 +76,7 @@ def main(lr, epochs, batch_size):
             # forward + backward + optimize
             outputs = net(inputs)
             loss = criterion(outputs, labels.unsqueeze(1))
-            acc = binary_acc(outputs, labels)
+            acc = binary_acc(outputs, labels.unsqueeze(1))
 
             loss.backward()
             
@@ -99,7 +99,7 @@ def main(lr, epochs, batch_size):
                 test_outputs = net(test_inputs)
                 
                 loss = criterion(test_outputs, test_labels.unsqueeze(1))
-                acc = binary_acc(test_outputs, test_labels)
+                acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
                 
                 test_loss += loss.item()
                 test_acc += acc.item()
@@ -108,7 +108,8 @@ def main(lr, epochs, batch_size):
         train_losses.append(train_loss/len(trainloader))
         test_accs.append(test_acc/len(testloader))
         test_losses.append(test_loss/len(testloader))
-        # Save model
+    
+    # Save model
     torch.save(net.state_dict(), PATH)
 
         # Plot the accuracy and loss

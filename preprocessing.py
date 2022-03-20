@@ -3,7 +3,7 @@ import mne as mne
 
 class Preprocessing():
     def __init__(self):
-        pass
+        self.visited = set()
 
     def save_data(self, filename, data):
         """
@@ -43,8 +43,16 @@ class Preprocessing():
         :param data:
         :return: preprocessed data
         """
-        if "EEG_baseline" not in data:
+        tiny_key = int(data.split("\\")[-1][:3]) # get the participant number
+        
+        # if tiny_key in self.visited:
+        #     print(tiny_
+        # key)
+        #     return None
+        # self.visited.add(tiny_key)
+        if "EEG_baseline" not in data and "EEG_post" not in data or tiny_key in self.visited:
             return None
+        
         with open(data, 'r') as f:
             lines = (line for line in f if not line.startswith('#'))
             bigarray = np.loadtxt(lines, delimiter=',', skiprows=1)
@@ -68,16 +76,17 @@ class Preprocessing():
         ica.exclude = [0]
         done = ica.apply(filt_raw)
 
-        ica = mne.preprocessing.ICA(n_components=4,method='fastica', random_state=23, max_iter=800).fit(filt_raw)
-        p = "eeg"
-        ica.exclude =[3]
-        raw_clean = ica.apply(filt_raw.copy())
-        filt_raw.pick_types(meg=False, eeg=True, ecg=False, stim=False)
+        # ica = mne.preprocessing.ICA(n_components=4,method='fastica', random_state=23, max_iter=800).fit(filt_raw)
+        # p = "eeg"
+        # ica.exclude =[3]
+        # raw_clean = ica.apply(filt_raw.copy())
+        # filt_raw.pick_types(meg=False, eeg=True, ecg=False, stim=False)
         
         
         
-        filt_raw.pick_types(meg=False, eeg=True, ecg=False, stim=False)
-        ica.exclude =[2]
-        print(ica.exclude)
-        done = ica.apply(filt_raw)
+        # filt_raw.pick_types(meg=False, eeg=True, ecg=False, stim=False)
+        # ica.exclude =[2]
+        # print(ica.exclude)
+        # done = ica.apply(filt_raw)
+        self.visited.add(tiny_key)	
         return done.to_data_frame()
