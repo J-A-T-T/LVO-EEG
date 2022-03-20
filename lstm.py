@@ -29,13 +29,15 @@ def main(lr, epoch, batch_size, num_layer):
     lvo = np.delete(lvo, 87)
     lvo = lvo.reshape(lvo.shape[0], -1)
 
-    # Duplicate the data if num_layer > 1
-    if num_layer > 1:
-        store = np.repeat(store, num_layer, axis=0)
-        lvo = np.repeat(lvo, 2, axis=0)
 
     clinical_train, clinical_test, label_train, label_test = train_test_split(
         store, lvo, test_size=0.2, random_state=42)
+
+    # Duplicate the data if num_layer > 1
+    # if num_layer > 1:
+    #     # store = np.repeat(store, num_layer, axis=1)
+    #     label_train = np.repeat(label_train, num_layer, axis=0)
+    #     label_test = np.repeat(label_test, num_layer, axis=0)
 
     train = CustomTrainDataset(torch.FloatTensor(
         clinical_train), torch.FloatTensor(label_train))
@@ -87,6 +89,9 @@ def main(lr, epoch, batch_size, num_layer):
             outputs = lstm(inputs)  # forward pass
 
             # obtain the loss function
+            if num_layer > 1:
+                # store = np.repeat(store, num_layer, axis=1)
+                labels = labels.repeat(num_layer,1)
 
             loss = criterion(outputs, labels)
             acc = binary_acc(outputs, labels)
@@ -108,6 +113,9 @@ def main(lr, epoch, batch_size, num_layer):
                 test_labels = test_labels.to(device)
 
                 test_outputs = lstm(test_inputs)
+
+                if num_layer > 1:
+                    test_labels = test_labels.repeat(num_layer, 1)
 
                 loss = criterion(test_outputs, test_labels)
                 acc = binary_acc(test_outputs, test_labels)
@@ -148,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int,
                         required=False, default=4, help='Size of batch')
     parser.add_argument('--num_layers', type=int, required=False,
-                        default=1, help='Number of stacked lstm layers')
+                        default=3, help='Number of stacked lstm layers')
 
     args = parser.parse_args()
     lr = args.lr

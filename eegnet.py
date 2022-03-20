@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, accuracy_score
 from sklearn.model_selection import train_test_split 
+import matplotlib.pyplot as plt
 import argparse
 
 import torch
@@ -13,6 +14,9 @@ import torch.optim as optim
 from utils.utils import CustomTrainDataset, CustomTestDataset 
 from torch.utils.data import Dataset, DataLoader
 from utils.plot_acc import plot_acc_loss
+from utils.plot_eeg import plot_eeg
+from pytorch_grad_cam import GradCAM
+
 
 from models.eegnet import EEGNet
 
@@ -44,6 +48,7 @@ def main(lr, epochs, batch_size):
 
     # Set up the model and optimizer
     net = EEGNet()
+    
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
     net.to(device)
@@ -75,6 +80,7 @@ def main(lr, epochs, batch_size):
 
             # forward + backward + optimize
             outputs = net(inputs)
+
             loss = criterion(outputs, labels.unsqueeze(1))
             acc = binary_acc(outputs, labels.unsqueeze(1))
 
@@ -112,37 +118,32 @@ def main(lr, epochs, batch_size):
     # Save model
     torch.save(net.state_dict(), PATH)
 
-        # Plot the accuracy and loss
-    plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
+    # Plot the accuracy and loss
+    # plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
+    # plt.show()
+
+
+    # Plot the original EEG 
+    example = torch.squeeze(next(iter(testloader))[0]).cpu().detach().numpy()
+    # example = next(iter(testloader))[0]
+    
+    plot_eeg(example)
+    plt.show()
+
+    # target_layers = [net.fc1]
+    # cam = GradCAM(model=net,
+    #          target_layers=target_layers,
+    #          use_cuda=torch.cuda.is_available()) 
+    # grayscale = cam(example)
+    # print(example.shape)
+    # print(grayscale)
+
+    # net(example)
+
+    # Plot the predicted EEG
 
 
 
-# def evaluate(model, X, Y, params = ["acc"]):
-#     results = []
-#     batch_size = 4
-    
-#     predicted = []
-    
-#     for i in range(int(len(X)/batch_size)):
-#         s = i*batch_size
-#         e = i*batch_size+batch_size
-        
-#         inputs = Variable(torch.from_numpy(X[s:e]).cuda(0))
-#         pred = model(inputs)
-        
-#         predicted.append(pred.data.cpu().numpy())
-        
-        
-#     inputs = Variable(torch.from_numpy(X).cuda(0))
-#     predicted = model(inputs)
-    
-#     predicted = predicted.data.cpu().numpy()
-    
-#     for param in params:
-#         if param == 'acc':
-#             results.append(accuracy_score(Y, np.round(predicted)))
-
-#     return results  
 
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
@@ -156,7 +157,7 @@ def binary_acc(y_pred, y_test):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=100, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()

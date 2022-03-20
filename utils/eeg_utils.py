@@ -11,7 +11,7 @@ count = 0
 length = 120
 for i in range(1,116):
     eeg = None
-    if i != 88 and i != 110:
+    if i != 110:
         if len(str(i)) == 1:
             eeg = pd.read_csv(path+'00'+str(i)+name).to_numpy()
         elif len(str(i)) == 2:
