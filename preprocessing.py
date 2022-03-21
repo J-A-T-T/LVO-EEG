@@ -94,5 +94,6 @@ class Preprocessing():
         # ica.exclude =[2]
         # print(ica.exclude)
         # done = ica.apply(filt_raw)
-        self.visited.add(tiny_key)	
+        done.pick_types(meg=False, eeg=True, ecg=False, stim=False)
+        self.visited.add(tiny_key)
         return done.to_data_frame()
