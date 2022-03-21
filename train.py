@@ -40,12 +40,11 @@ def main(lr, num_epoch, batch_size):
     features = clinical.columns
     label = df['lvo']
 
-    print(clinical.shape)
+    label = label.to_numpy()
     clinical = clinical.to_numpy()
-    print(clinical.shape)
 
-    clinical = np.delete(clinical.to_numpy(), 87)
-    label = np.delete(label.to_numpy(), 87)
+    clinical = np.delete(clinical, 87)
+    label = np.delete(label, 87)
     print(label.shape)
     print(clinical.shape)
     exit()
