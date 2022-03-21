@@ -24,3 +24,15 @@ class CustomTestDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.clinical[idx]
+
+class CustomDataset(Dataset):
+    def __init__(self, clinical, label, eeg):
+        self.clinical = clinical
+        self.label = label
+        self.eeg = eeg
+
+    def __len__(self):
+        return len(self.label)
+
+    def __getitem__(self, idx):
+        return self.clinical[idx], self.label[idx], self.eeg[idx]
