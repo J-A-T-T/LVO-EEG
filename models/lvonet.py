@@ -9,8 +9,7 @@ class LVONet(nn.Module):
     def __init__(self):
         super().__init__()
         self.clinical = NeuralNet(num_features_in = 5, num_features_out= 4, embed_dim = 64)
-        self.lstm = LSTM1(num_classes=4, input_size=4, hidden_size=2,
-                 num_layers=4, num_time=120)
+        self.lstm = LSTM1(num_classes=4, input_size=4, hidden_size=2,num_layers=1, seq_length=120)
 
         # Activation and regularization
         self.sigmoid = nn.Sigmoid()
@@ -22,7 +21,7 @@ class LVONet(nn.Module):
     def forward(self, clinical, eeg):
         clinical = self.clinical(clinical)
         eeg = self.lstm(eeg)
-        x = torch.cat((clinical,eeg),0)
+        x = torch.cat((clinical,eeg),1)
         x = self.layer1(x)
         x = self.relu(x)
         

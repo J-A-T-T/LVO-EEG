@@ -7,9 +7,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
 import shap
+from sklearn.utils import shuffle
 
 import torch
-from utils.utils import CustomTrainDataset, CustomTestDataset 
+from utils.utils import CustomTrainDataset, CustomDataset 
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
@@ -28,7 +29,7 @@ def main(lr, num_epoch, batch_size):
     PATH = './pretrained/trained.pth'
 
     # Load the preprocessed eeg data
-    store = np.load('./data/processed_eeg.npy')
+    eeg = np.load('./data/processed_eeg.npy')
     
     #Load clinical data first
     df = pd.read_csv('./data/df_onsite.csv')
@@ -43,18 +44,16 @@ def main(lr, num_epoch, batch_size):
     label = label.to_numpy()
     clinical = clinical.to_numpy()
 
-    clinical = np.delete(clinical, 87)
+    clinical = np.delete(clinical, 87,0)
     label = np.delete(label, 87)
-    print(label.shape)
-    print(clinical.shape)
-    exit()
-    clinical_train, clinical_test, label_train, label_test = train_test_split(clinical, label, test_size = 0.2, random_state=42)
-    
+    clinical_train, clinical_test, label_train, label_test = train_test_split(clinical, label, test_size = 0.2, shuffle=False)
+    eeg_train, eeg_test = train_test_split(eeg, test_size=0.2, shuffle=False)
+
 
     # Define the custom dataset
-    train = CustomTrainDataset(torch.FloatTensor(clinical_train.values), torch.FloatTensor(label_train.values))
+    train = CustomDataset(torch.FloatTensor(clinical_train), torch.FloatTensor(label_train), torch.FloatTensor(eeg_train))
     # test = CustomTestDataset(torch.FloatTensor(clinical_test.values))
-    test = CustomTrainDataset(torch.FloatTensor(clinical_test.values), torch.FloatTensor(label_test.values))
+    test = CustomDataset(torch.FloatTensor(clinical_test), torch.FloatTensor(label_test), torch.FloatTensor(eeg_test))
 
     # Create DataLoader
     trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
@@ -72,6 +71,7 @@ def main(lr, num_epoch, batch_size):
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
+
     # Train the model on training data
     model.train() 
     train_accs = []
@@ -83,17 +83,18 @@ def main(lr, num_epoch, batch_size):
         train_acc = 0
         
         for (idx, batch) in enumerate(trainloader):
-            inputs, labels = batch[0], batch[1]
+            inputs, labels, eegs = batch[0], batch[1], batch[2]
 
             # Cast the data to be in correct format
             inputs = inputs.to(device)
             labels = labels.to(device)
+            eegs = eegs.to(device)
             
             #Zero the parameter gradients
             optimizer.zero_grad()
 
             # Forward + backward + optimize
-            outputs = model(inputs)
+            outputs = model(inputs, eegs)
             loss = criterion(outputs, labels.unsqueeze(1))
             acc = binary_acc(outputs, labels.unsqueeze(1))
             loss.backward()
@@ -101,7 +102,7 @@ def main(lr, num_epoch, batch_size):
 
             train_loss += loss.item()
             train_acc += acc.item()
-        
+
 
         # Test the model 
         label_pred_list = []
@@ -110,11 +111,12 @@ def main(lr, num_epoch, batch_size):
         test_acc = 0
         with torch.no_grad():
             for (idx, data) in enumerate(testloader):
-                test_inputs, test_labels = data[0], data[1]
+                test_inputs, test_labels, test_eegs = data[0], data[1], data[2]
                 test_inputs = test_inputs.to(device)
                 test_labels = test_labels.to(device)
+                test_eegs = test_eegs.to(device)
                 
-                test_outputs = model(test_inputs)
+                test_outputs = model(test_inputs, test_eegs)
                 
                 loss = criterion(test_outputs, test_labels.unsqueeze(1))
                 acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
@@ -160,11 +162,11 @@ def main(lr, num_epoch, batch_size):
 
     # Provide SHAP values: Try other explainer than GradientExplainer
     # SHAP values represent a features's responsibility for a change in the model output 
-    e = shap.GradientExplainer(model, torch.FloatTensor(clinical_train.values).to(device))
-    shap_values = e.shap_values(torch.FloatTensor(clinical_test.values).to(device))
+    # e = shap.GradientExplainer(model, torch.FloatTensor(clinical_train).to(device))
+    # shap_values = e.shap_values(torch.FloatTensor(clinical_test.values).to(device))
     # print(shap_values)
-    x_test_values = clinical_test.to_numpy()
-    shap.summary_plot(shap_values, x_test_values, feature_names=features)
+    # x_test_values = clinical_test.to_numpy()
+    # shap.summary_plot(shap_values, x_test_values, feature_names=features)
 
     # Provide Grad-Cam
 
