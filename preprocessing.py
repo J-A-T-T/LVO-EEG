@@ -8,15 +8,21 @@ class Preprocessing():
     def save_data(self, filename, data):
         """
         Save our array to a file.
+        Saves to _EEG_baseline_stroke_study_updated.csv
+        can be changed to save to same file name
         """
         x = filename.split("\\")
         name = x[-1]
         x = x[:-2]
         x = "\\".join(x)
         x += "\ecg_clean\\"
+        y = (filename.split("\\")[-1][:3])
+        name = y +'_EEG_baseline_stroke_study_updated.csv'
         x += name
         x.replace("\\" , "/")
         print(x)
+        
+        
         data.to_csv(x, index=False)
 
 
@@ -88,5 +94,6 @@ class Preprocessing():
         # ica.exclude =[2]
         # print(ica.exclude)
         # done = ica.apply(filt_raw)
-        self.visited.add(tiny_key)	
+        done.pick_types(meg=False, eeg=True, ecg=False, stim=False)
+        self.visited.add(tiny_key)
         return done.to_data_frame()
