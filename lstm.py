@@ -95,6 +95,7 @@ def main(lr, epoch, batch_size, num_layer):
                 # store = np.repeat(store, num_layer, axis=1)
                 labels = labels.repeat(num_layer,1)
 
+
             loss = criterion(outputs, labels)
             acc = binary_acc(outputs, labels)
 
@@ -147,7 +148,7 @@ def main(lr, epoch, batch_size, num_layer):
 
     
 
-    with open('./results/result.csv','w') as f:
+    with open('./results/result-lstm.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
         
@@ -171,7 +172,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int,
                         required=False, default=4, help='Size of batch')
     parser.add_argument('--num_layers', type=int, required=False,
-                        default=3, help='Number of stacked lstm layers')
+                        default=2, help='Number of stacked lstm layers')
 
     args = parser.parse_args()
     lr = args.lr

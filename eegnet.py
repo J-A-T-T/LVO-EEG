@@ -48,14 +48,13 @@ def main(lr, epochs, batch_size):
     testloader = DataLoader(test, shuffle=False)
 
     # Set up the model and optimizer
-    net = EEGNet()
+    net = EEGNet(output=1)
     
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
     net.to(device)
     criterion = nn.BCELoss()
     optimizer = optim.Adam(net.parameters(), lr=lr)
-
 
     test_results=[]
     train_accs = []
@@ -81,6 +80,7 @@ def main(lr, epochs, batch_size):
 
             # forward + backward + optimize
             outputs = net(inputs)
+
 
             loss = criterion(outputs, labels.unsqueeze(1))
             acc = binary_acc(outputs, labels.unsqueeze(1))
@@ -152,7 +152,7 @@ def main(lr, epochs, batch_size):
 
     
 
-    with open('./results/result.csv','w') as f:
+    with open('./results/result-eegnet.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
         

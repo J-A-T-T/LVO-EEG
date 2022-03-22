@@ -1,16 +1,15 @@
 from .NN import NeuralNet
-from .lstm import LSTM1
+from .eegnet import EEGNet
 
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
-class LVONet(nn.Module):
-    def __init__(self, num_layer):
+class LVOEEGNet(nn.Module):
+    def __init__(self):
         super().__init__()
         self.clinical = NeuralNet(num_features_in = 5, num_features_out= 4, embed_dim = 128)
-        self.lstm = LSTM1(num_classes=4, input_size=4, hidden_size=2,num_layers=num_layer, seq_length=120)
-        self.num_layer = num_layer
+        self.eegnet = EEGNet(output=4)
         # Activation and regularization
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU()
@@ -20,12 +19,7 @@ class LVONet(nn.Module):
 
     def forward(self, clinical, eeg):
         clinical = self.clinical(clinical)
-        eeg = self.lstm(eeg)
-
-        if self.num_layer > 1:
-            # store = np.repeat(store, num_layer, axis=1)
-            clinical = clinical.repeat(self.num_layer,1)
-        
+        eeg = self.eegnet(eeg)
 
         x = torch.cat((clinical,eeg),1)
         x = self.layer1(x)

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class EEGNet(nn.Module):
-    def __init__(self):
+    def __init__(self, output):
         super(EEGNet, self).__init__()
         self.T = 120
         
@@ -26,7 +26,7 @@ class EEGNet(nn.Module):
         # FC Layer
         # NOTE: This dimension will depend on the number of timestamps per sample in your data.
         # I have 120 timepoints. 
-        self.fc1 = nn.Linear(4*2*7, 1)
+        self.fc1 = nn.Linear(4*2*7, output)
         
 
     def forward(self, x):

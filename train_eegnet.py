@@ -17,11 +17,11 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
 
-from models.lvonet import LVONet
+from models.lvoeegnet import LVOEEGNet
 
 from utils.plot_acc import plot_acc_loss
 
-def main(lr, num_epoch, batch_size, num_layer):
+def main(lr, num_epoch, batch_size):
 
     # Define hyperparameters
     epochs = num_epoch
@@ -31,6 +31,7 @@ def main(lr, num_epoch, batch_size, num_layer):
 
     # Load the preprocessed eeg data
     eeg = np.load('./data/processed_eeg.npy')
+    eeg = eeg.reshape(eeg.shape[0],1,eeg.shape[1], eeg.shape[2])
     
     #Load clinical data first
     df = pd.read_csv('./data/df_onsite.csv')
@@ -62,7 +63,7 @@ def main(lr, num_epoch, batch_size, num_layer):
     # testloader = DataLoader(test, shuffle=False)
 
     # Create a model
-    model = LVONet(num_layer)
+    model = LVOEEGNet()
 
     # Training on GPU if possible
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -96,11 +97,7 @@ def main(lr, num_epoch, batch_size, num_layer):
             #Zero the parameter gradients
             optimizer.zero_grad()
 
-            if num_layer > 1:
-                # store = np.repeat(store, num_layer, axis=1)
-                labels = labels.repeat(num_layer,1)
 
-            
             # Forward + backward + optimize
             outputs = model(inputs, eegs)
 
@@ -127,9 +124,6 @@ def main(lr, num_epoch, batch_size, num_layer):
                 test_labels = test_labels.to(device)
                 test_eegs = test_eegs.to(device)
 
-                if num_layer > 1:
-                # store = np.repeat(store, num_layer, axis=1)
-                    test_labels = test_labels.repeat(num_layer,1)
                 
                 test_outputs = model(test_inputs, test_eegs)
                 
@@ -215,13 +209,12 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
     parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
-    parser.add_argument('--num_layer', type=int, required=False, default=3, help='Number of layer')
+
 
 
     args = parser.parse_args()
     lr = args.lr
     num_epoch = args.num_epoch
     batch_size = args.batch_size
-    num_layer = args.num_layer
 
-    main(lr, num_epoch, batch_size, num_layer)
+    main(lr, num_epoch, batch_size)

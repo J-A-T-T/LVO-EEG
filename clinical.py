@@ -44,9 +44,9 @@ def main(lr, num_epoch, batch_size):
     # test = CustomTestDataset(torch.FloatTensor(clinical_test.values))
     test = CustomTrainDataset(torch.FloatTensor(clinical_test.values), torch.FloatTensor(label_test.values))
 
-    # Create DataLoader
-    trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-    testloader = DataLoader(test, shuffle=False)
+    # # Create DataLoader
+    # trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+    # testloader = DataLoader(test, shuffle=False)
 
     # Create a model
     model = NeuralNet()
@@ -69,6 +69,11 @@ def main(lr, num_epoch, batch_size):
     for epoch in range(1, epochs+1):
         train_loss = 0
         train_acc = 0
+
+        # Create DataLoader
+        trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+        testloader = DataLoader(test, shuffle=False)
+
         
         for (idx, batch) in enumerate(trainloader):
             inputs, labels = batch[0], batch[1]
@@ -165,7 +170,7 @@ def main(lr, num_epoch, batch_size):
 
     
 
-    with open('./results/result.csv','w') as f:
+    with open('./results/result-clinical.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
         
