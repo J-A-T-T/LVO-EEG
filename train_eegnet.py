@@ -154,7 +154,7 @@ def main(lr, num_epoch, batch_size):
 
 
 
-    with open('./results/result-lstm-lvo.csv','w') as f:
+    with open('./results/result-eegnet-lvo.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
         
