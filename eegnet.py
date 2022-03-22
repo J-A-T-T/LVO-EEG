@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 import pandas as pd
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, accuracy_score
 from sklearn.model_selection import train_test_split 
@@ -141,7 +142,20 @@ def main(lr, epochs, batch_size):
     # net(example)
 
     # Plot the predicted EEG
+    
+    # Save the result to the csv file
+    avg_train_accs = sum(train_accs)/len(train_accs)
+    avg_train_losses = sum(train_losses)/len(train_losses)
+    avg_test_accs = sum(test_accs)/len(test_accs)
+    avg_test_losses = sum(test_losses)/len(test_losses)
+    print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
 
+    
+
+    with open('./results/result.csv','w') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
+        
 
 
 

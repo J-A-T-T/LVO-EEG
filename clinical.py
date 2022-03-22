@@ -1,4 +1,5 @@
 import argparse
+import csv
 from audioop import avg
 from math import e
 import pandas as pd
@@ -155,6 +156,19 @@ def main(lr, num_epoch, batch_size):
 
     # Provide Grad-Cam
 
+    # Save the result to the csv file
+    avg_train_accs = sum(train_accs)/len(train_accs)
+    avg_train_losses = sum(train_losses)/len(train_losses)
+    avg_test_accs = sum(test_accs)/len(test_accs)
+    avg_test_losses = sum(test_losses)/len(test_losses)
+    print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
+
+    
+
+    with open('./results/result.csv','w') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
+        
     
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)

@@ -1,4 +1,5 @@
 import argparse
+import csv
 from audioop import avg
 from math import e
 import pandas as pd
@@ -136,6 +137,20 @@ def main(lr, num_epoch, batch_size):
     # Plot the accuracy and loss
     plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
 
+    # Save the result to the csv file
+    avg_train_accs = sum(train_accs)/len(train_accs)
+    avg_train_losses = sum(train_losses)/len(train_losses)
+    avg_test_accs = sum(test_accs)/len(test_accs)
+    avg_test_losses = sum(test_losses)/len(test_losses)
+    print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
+
+    
+
+    with open('./results/result.csv','w') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
+        
+
     # Plot the 
     # Test the model 
     # label_pred_list = []
@@ -184,7 +199,7 @@ def binary_acc(y_pred, y_test):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=5, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()

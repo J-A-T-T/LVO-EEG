@@ -28,4 +28,3 @@ class NeuralNet(nn.Module):
         x = self.layer3(x)
         x = self.sigmoid(x)
         return x
-    

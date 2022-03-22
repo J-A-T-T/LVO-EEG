@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import argparse
+import csv
 
 import torch
 import torch.nn as nn
@@ -79,6 +80,7 @@ def main(lr, epoch, batch_size, num_layer):
     for epoch in range(num_epochs):
         train_loss = 0
         train_acc = 0
+        
         # X_train_tensors = X_train_tensors.to(device)
         for (idx, batch) in enumerate(trainloader):
             inputs, labels = batch[0], batch[1]
@@ -136,6 +138,19 @@ def main(lr, epoch, batch_size, num_layer):
     plot_acc_loss(train_accs, test_accs, train_losses,
                   test_losses, "Acc and Loss")
 
+    # Save the result to the csv file
+    avg_train_accs = sum(train_accs)/len(train_accs)
+    avg_train_losses = sum(train_losses)/len(train_losses)
+    avg_test_accs = sum(test_accs)/len(test_accs)
+    avg_test_losses = sum(test_losses)/len(test_losses)
+    print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
+
+    
+
+    with open('./results/result.csv','w') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
+        
 
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
