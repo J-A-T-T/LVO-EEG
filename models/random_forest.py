@@ -9,9 +9,9 @@ from sklearn.model_selection import RandomizedSearchCV
 
 def train_test_data():
     # Load the label 
-    lvo = pd.read_csv(r"C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\df_onsite.csv")
+    lvo = pd.read_csv(r"data\df_onsite.csv")
     lvo = lvo['lvo']
-    eeg_features = pd.read_csv(r'C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\feature_processed\simple_features.csv')
+    eeg_features = pd.read_csv(r'data\feature_processed\simple_features.csv')
 
     print(eeg_features.columns)
     # Scale data
@@ -67,22 +67,28 @@ def evaluation_metric(CM):
 
 
 if __name__ == '__main__':
-    run_HyperParameterTuning = False
-    if input("Run HyperParameterTuning? (y/n)") == 'y':
-        run_HyperParameterTuning = True
+    run_HyperParameterTuning = True
+    
     
     
     X_train, X_test, y_train, y_test = train_test_data()
     forest_attempt = model(X_train, X_test, y_train, y_test)
     forest_pred = preds(forest_attempt, X_test)
+    forest_pred_t = preds(forest_attempt, X_train)
 
+    forest_CM_t = confusion_matrix(y_train, forest_pred_t)
     forest_CM  = confusion_matrix(y_test,forest_pred )
 
     forest_F1  = accuracy_score(y_test,forest_pred )
+    forest_F1_t = accuracy_score(y_train,forest_pred_t)
 
     forest_loss  = evaluation_metric(forest_CM)
-    print(forest_F1)
+    forest_loss_t = evaluation_metric(forest_CM_t)
 
+    
+    print(forest_F1_t)
+    print(forest_F1)
+    print(forest_loss_t)
     print(forest_loss)
     
     if run_HyperParameterTuning:
