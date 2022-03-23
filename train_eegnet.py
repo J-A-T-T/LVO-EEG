@@ -46,8 +46,8 @@ def main(lr, num_epoch, batch_size):
     label = label.to_numpy()
     clinical = clinical.to_numpy()
 
-    clinical = np.delete(clinical, 87,0)
-    label = np.delete(label, 87)
+    # clinical = np.delete(clinical, 87,0)
+    # label = np.delete(label, 87)
     label = label.reshape(label.shape[0],-1)
     clinical_train, clinical_test, label_train, label_test = train_test_split(clinical, label, test_size = 0.2, shuffle=False)
     eeg_train, eeg_test = train_test_split(eeg, test_size=0.2, shuffle=False)

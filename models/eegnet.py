@@ -26,8 +26,10 @@ class EEGNet(nn.Module):
         # FC Layer
         # NOTE: This dimension will depend on the number of timestamps per sample in your data.
         # I have 120 timepoints. 
-        self.fc1 = nn.Linear(4*2*7, output)
-        
+        self.fc1 = nn.Linear(4* 2* 312, output)
+        # self.fc1 = nn.Linear(4* 2* 2231, output)
+        # self.fc1 = nn.Linear(4* 2* 625, output)
+
 
     def forward(self, x):
         # Layer 1
@@ -51,6 +53,8 @@ class EEGNet(nn.Module):
         x = self.pooling3(x)
         
         # FC Layer
-        x = x.reshape(-1, 4*2*7)
+        x = x.reshape(-1, 4 * 2 *312)
+        # x = x.reshape(-1, 4 * 2 *2231)
+        # x = x.reshape(-1, 4 * 2 *625)
         x = torch.sigmoid(self.fc1(x))
         return x

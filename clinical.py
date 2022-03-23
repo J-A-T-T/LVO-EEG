@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+import eli5
+from eli5.sklearn import PermutationImportance
 
 import shap
 
@@ -161,6 +163,10 @@ def main(lr, num_epoch, batch_size):
 
     # Provide Grad-Cam
 
+    # Permutation Importance: 
+    perm = PermutationImportance(model, random_state=1).fit(clinical_test, label_test)
+    eli5.show_weights(perm, feature_names = clinical_test.columns.tolist())
+
     # Save the result to the csv file
     avg_train_accs = sum(train_accs)/len(train_accs)
     avg_train_losses = sum(train_losses)/len(train_losses)
@@ -173,7 +179,6 @@ def main(lr, num_epoch, batch_size):
     with open('./results/result-clinical.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
-        
     
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)

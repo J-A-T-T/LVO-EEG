@@ -29,7 +29,7 @@ def main(lr, epochs, batch_size):
     # Load the label 
     df = pd.read_csv('./data/df_onsite.csv')
     lvo = df['lvo'].to_numpy()
-    lvo = np.delete(lvo, 87)
+    # lvo = np.delete(lvo, 87)
     lvo = np.float32(lvo)
     
     # Load the preprocessed eeg data
@@ -120,8 +120,8 @@ def main(lr, epochs, batch_size):
     torch.save(net.state_dict(), PATH)
 
     # Plot the accuracy and loss
-    # plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
-    # plt.show()
+    plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
+    plt.show()
 
 
     # Plot the original EEG 
@@ -171,7 +171,7 @@ def binary_acc(y_pred, y_test):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=20, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()

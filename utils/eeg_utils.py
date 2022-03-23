@@ -7,8 +7,8 @@ path = '../data/ecg_clean/'
 name = '_EEG_baseline_stroke_study_updated.csv'
 store = None
 count = 0
-# length = 42084
-length = 120
+# length = 35700
+length = 5000
 for i in range(1,116):
     eeg = None
     if i != 110:
@@ -30,3 +30,4 @@ for i in range(1,116):
         count +=1 
 
 np.save('../data/processed_eeg.npy', store)
+
