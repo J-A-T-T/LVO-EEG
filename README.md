@@ -34,3 +34,8 @@ Install mne:
 * Wait a minute or so
 
 * data should be in ecg clean
+
+# References:
+https://github.com/jordan-bird/eeg-feature-generation
+https://eeglib.readthedocs.io/en/latest/
+
