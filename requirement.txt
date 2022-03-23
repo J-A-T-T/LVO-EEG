@@ -7,3 +7,4 @@ torch
 shap
 mne
 grad-cam
+eli5

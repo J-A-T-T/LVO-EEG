@@ -27,7 +27,7 @@ def main(lr, epoch, batch_size, num_layer):
     # Load clinical data
     df = pd.read_csv('./data/df_onsite.csv')
     lvo = df['lvo'].to_numpy()
-    lvo = np.delete(lvo, 87)
+    # lvo = np.delete(lvo, 87)
     lvo = lvo.reshape(lvo.shape[0], -1)
 
 
@@ -45,8 +45,7 @@ def main(lr, epoch, batch_size, num_layer):
     test = CustomTrainDataset(torch.FloatTensor(
         clinical_test), torch.FloatTensor(label_test))
 
-    trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-    testloader = DataLoader(test, shuffle=False)
+    
 
     # Define hyperparameters
 
@@ -80,7 +79,8 @@ def main(lr, epoch, batch_size, num_layer):
     for epoch in range(num_epochs):
         train_loss = 0
         train_acc = 0
-        
+        trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+        testloader = DataLoader(test, shuffle=False)
         # X_train_tensors = X_train_tensors.to(device)
         for (idx, batch) in enumerate(trainloader):
             inputs, labels = batch[0], batch[1]
@@ -138,6 +138,7 @@ def main(lr, epoch, batch_size, num_layer):
     # Plot the accuracy and loss
     plot_acc_loss(train_accs, test_accs, train_losses,
                   test_losses, "Acc and Loss")
+    plt.show()
 
     # Save the result to the csv file
     avg_train_accs = sum(train_accs)/len(train_accs)
@@ -175,7 +176,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, required=False,
                         default=1e-4, help='Learning rate')
     parser.add_argument('--num_epoch', type=int, required=False,
-                        default=1, help='Number of epoch')
+                        default=100, help='Number of epoch')
     parser.add_argument('--batch_size', type=int,
                         required=False, default=4, help='Size of batch')
     parser.add_argument('--num_layers', type=int, required=False,
