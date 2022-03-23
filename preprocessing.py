@@ -1,5 +1,8 @@
 import numpy as np
+import pandas as pd
 import mne as mne
+import eeglib as eeg
+import os
 
 class Preprocessing():
     def __init__(self):
@@ -41,6 +44,58 @@ class Preprocessing():
         info.set_montage('standard_1020')
         pure_raw = mne.io.RawArray(np.transpose(bigarray), info)
         return pure_raw
+    
+    def simpleExtraction(self, filename):
+        """
+        Extracts simple features from file and places the data
+        in a csv
+        :param filename:
+        :return:
+        """
+        # load in the data
+        df = pd.read_csv(filename)
+        df.drop(df.columns[[-1, -2]],axis=1,inplace=True)
+        df.drop(df.columns[0], axis=1, inplace=True)
+        y = "data/feature_processing/" + filename.split("\\")[-1][:3] + "_EEG_baseline_stroke_study_updated.csv"
+        df.to_csv(y, index=False)
+        helper = eeg.helpers.CSVHelper(y, lowpass=30, highpass=0.5, normalize=True, ICA=True, windowSize=128)
+        wrap = eeg.wrapper.Wrapper(helper)
+        for egg in helper:
+            egg.PFD()
+        wrap.addFeature.HFD()
+        wrap.addFeature.DFA()
+        features = wrap.getFeatures()
+        tiny = list(features)
+        tiny.pop()
+        return tiny
+        
+
+    def createSimpleExtractionCSV(self):
+        """
+        Creates a csv file for each participant
+        :param filename:
+        :return:
+        """
+        self.visited = set()
+        directory = r'C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\115'
+        new_df = pd.DataFrame(columns=("HFD0", "HFD1", "HFD2", "HFD3", "DFA0", "DFA1", "DFA2", "DFA3"))
+        # create a Preprocessing object
+        i = 0
+        for filename in os.listdir(directory):
+            f = os.path.join(directory, filename)
+            # checking if it is a file
+            if os.path.isfile(f):
+                tiny_key = int(f.split("\\")[-1][:3])
+                if "EEG_baseline" not in f and "EEG_post" not in f or tiny_key in self.visited:
+                    continue
+                returned_list = self.simpleExtraction(f)
+                if returned_list is not None:
+                    new_df.loc[i] = returned_list
+                    i += 1
+                    self.visited.add(tiny_key)
+                    print(i, tiny_key)
+        new_df.to_csv("data/feature_processed/simple_features.csv", index=False)
+        
 
 
     def preprocess(self, data):
