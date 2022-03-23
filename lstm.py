@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import argparse
 import csv
-
+import shap
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -162,6 +162,13 @@ def binary_acc(y_pred, y_test):
 
     return acc
 
+def shap_values(X_train, X_test, model, features):
+    # Use the training data for deep explainer => can use fewer instances
+    explainer = shap.DeepExplainer(model, X_train)
+    shap_values = explainer.shap_values(X_test)
+    # init the JS visualization code
+    shap.initjs()
+    shap.force_plot(explainer.expected_value[0], shap_values[0][0], features)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
