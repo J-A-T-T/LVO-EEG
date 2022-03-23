@@ -70,14 +70,13 @@ class Preprocessing():
         return tiny
         
 
-    def createSimpleExtractionCSV(self):
+    def createSimpleExtractionCSV(self, directory):
         """
         Creates a csv file for each participant
         :param filename:
         :return:
         """
         self.visited = set()
-        directory = r'C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\115'
         new_df = pd.DataFrame(columns=("HFD0", "HFD1", "HFD2", "HFD3", "DFA0", "DFA1", "DFA2", "DFA3"))
         # create a Preprocessing object
         i = 0

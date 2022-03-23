@@ -10,7 +10,7 @@ directory = r'C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\115'
 
 # create a Preprocessing object
 preprocessing = pp()
-preprocessing.createSimpleExtractionCSV()
+preprocessing.createSimpleExtractionCSV(directory)
 # for filename in os.listdir(directory):
 #     f = os.path.join(directory, filename)
 #     # checking if it is a file
