@@ -59,8 +59,8 @@ def main(lr, num_epoch, batch_size):
     test = CustomDataset(torch.FloatTensor(clinical_test), torch.FloatTensor(label_test), torch.FloatTensor(eeg_test))
 
     # Create DataLoader
-    # trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-    # testloader = DataLoader(test, shuffle=False)
+    trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+    testloader = DataLoader(test, shuffle=False)
 
     # Create a model
     model = LVOEEGNet()
@@ -81,11 +81,12 @@ def main(lr, num_epoch, batch_size):
     test_accs = []
     train_losses = []
     test_losses = []
+    i = 1
     for epoch in range(1, epochs+1):
         train_loss = 0
         train_acc = 0
         trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-        testloader = DataLoader(test, shuffle=False)
+        #testloader = DataLoader(test, shuffle=True)
         for (idx, batch) in enumerate(trainloader):
             inputs, labels, eegs = batch[0], batch[1], batch[2]
 
@@ -127,7 +128,8 @@ def main(lr, num_epoch, batch_size):
                 
                 test_outputs = model(test_inputs, test_eegs)
                 
-                loss = criterion(test_outputs, test_labels)
+                #loss = criterion(test_outputs, test_labels)
+                loss = custom_lost_function(test_outputs, test_labels)
                 acc = binary_acc(test_outputs, test_labels)
                 
                 test_loss += loss.item()
@@ -138,6 +140,14 @@ def main(lr, num_epoch, batch_size):
         train_losses.append(train_loss/len(trainloader))
         test_accs.append(test_acc/len(testloader))
         test_losses.append(test_loss/len(testloader))
+        
+        if (i % 10 == 0):
+            avg_train_accs = sum(train_accs)/len(train_accs)
+            avg_train_losses = sum(train_losses)/len(train_losses)
+            avg_test_accs = sum(test_accs)/len(test_accs)
+            avg_test_losses = sum(test_losses)/len(test_losses)
+            print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
+        i += 1
 
     # Save model
     torch.save(model.state_dict(), PATH)
@@ -161,20 +171,25 @@ def main(lr, num_epoch, batch_size):
 
     # Plot the 
     # Test the model 
-    # label_pred_list = []
-    # model.eval()
-    # with torch.no_grad():
-    #     for inputs in testloader:
-    #         inputs = inputs.to(device)
-    #         label_test_pred = model(inputs)
-    #         label_pred_tag = torch.round(label_test_pred)
-    #         label_pred_list.append(label_pred_tag.cpu().numpy())
+    label_pred_list = []
+    model.eval()
+    with torch.no_grad():
+        for obj in testloader:
+            inputs = obj[0].to(device)
+            labels = obj[1].to(device)
+            eegs = obj[2].to(device)
+                 
+            label_test_pred = model(inputs, eegs)
+            label_pred_tag = torch.round(label_test_pred)
+            label_pred_list.append(label_pred_tag.cpu().numpy())
 
-    # label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
-    # # Classification report
+    label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
+    # Classification report
     
-    # print('Confusion matrix')
-    # print(confusion_matrix(label_test, label_pred_list))
+    print('Confusion matrix')
+    CM = confusion_matrix(label_test, label_pred_list)
+    print(CM)
+    print(evaluation_metric(CM))
 
     # print('Classification report')
     # print(classification_report(label_test, label_pred_list))
@@ -201,8 +216,41 @@ def binary_acc(y_pred, y_test):
     acc = correct_results_sum/y_test.shape[0]
     acc = torch.round(acc * 100)
     
-    return acc   
-    
+    return acc
+
+# output is the predicted value
+def custom_lost_function(outputs, labels):
+    rounded_outputs = torch.round(outputs)
+
+    # confusion_vector = rounded_output / label
+
+    # true_positives = torch.sum(confusion_vector == 1)
+    # false_positives = torch.sum(confusion_vector == float('inf'))
+    # true_negatives = torch.sum(torch.isnan(confusion_vector))
+    # false_negatives = torch.sum(confusion_vector == 0)
+
+    # specificity = true_negatives / (true_negatives + false_positives + 1e-10)
+    # recall = true_positives / (true_positives + false_negatives + 1e-10)
+    # return_val = 1.0 - (0.1 * specificity + 0.9 * recall)
+
+    # Initialize all weight to 1 at first
+    weightArr = torch.ones(rounded_outputs.size()[0], 1)
+
+    for i in range(rounded_outputs.size()[0]):
+        # False negative when output = 0 but labels != output (i.e., label = 1, since label can only be in {0,1})
+        if (rounded_outputs[i][0] == 0) and (rounded_outputs[i][0] != labels[i][0]):
+            weightArr[i] = 4.0
+    modCriterion = nn.BCELoss(weight=weightArr)
+    return modCriterion(outputs, labels)
+
+def evaluation_metric(CM):
+    TN = CM[0][0]
+    FP = CM[0][1]
+    FN = CM[1][0]
+    TP = CM[1][1]
+
+    expected_loss = (4*FN+FP)/(4*TP+TN)
+    return expected_loss
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')

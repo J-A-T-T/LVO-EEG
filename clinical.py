@@ -122,6 +122,7 @@ def main(lr, num_epoch, batch_size):
         train_losses.append(train_loss/len(trainloader))
         test_accs.append(test_acc/len(testloader))
         test_losses.append(test_loss/len(testloader))
+        
 
     # Save model
     torch.save(model.state_dict(), PATH)
@@ -131,20 +132,24 @@ def main(lr, num_epoch, batch_size):
 
     # Plot the 
     # Test the model 
-    # label_pred_list = []
-    # model.eval()
-    # with torch.no_grad():
-    #     for inputs in testloader:
-    #         inputs = inputs.to(device)
-    #         label_test_pred = model(inputs)
-    #         label_pred_tag = torch.round(label_test_pred)
-    #         label_pred_list.append(label_pred_tag.cpu().numpy())
+    label_pred_list = []
+    model.eval()
+    with torch.no_grad():
+        for obj in testloader:
+            inputs = obj[0].to(device)
+            labels = obj[1].to(device)
+            label_test_pred = model(inputs)
+            label_pred_tag = torch.round(label_test_pred)
+            label_pred_list.append(label_pred_tag.cpu().numpy())
 
-    # label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
-    # # Classification report
+    label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
+    # Classification report
     
-    # print('Confusion matrix')
-    # print(confusion_matrix(label_test, label_pred_list))
+    print('Confusion matrix')
+    print(confusion_matrix(label_test, label_pred_list))
+    CM = confusion_matrix(label_test, label_pred_list)
+    print(CM)
+    print(evaluation_metric(CM))
 
     # print('Classification report')
     # print(classification_report(label_test, label_pred_list))
@@ -164,8 +169,10 @@ def main(lr, num_epoch, batch_size):
     # Provide Grad-Cam
 
     # Permutation Importance: 
-    # perm = PermutationImportance(model, random_state=1).fit(clinical_test, label_test)
-    # eli5.show_weights(perm, feature_names = clinical_test.columns.tolist())
+
+    perm = PermutationImportance(model, random_state=1).fit(clinical_test, label_test)
+    eli5.show_weights(perm, feature_names = clinical_test.columns.tolist())
+
 
     # Save the result to the csv file
     avg_train_accs = sum(train_accs)/len(train_accs)
@@ -187,12 +194,21 @@ def binary_acc(y_pred, y_test):
     acc = correct_results_sum/y_test.shape[0]
     acc = torch.round(acc * 100)
     
-    return acc   
+    return acc
+
+def evaluation_metric(CM):
+    TN = CM[0][0]
+    FP = CM[0][1]
+    FN = CM[1][0]
+    TP = CM[1][1]
+
+    expected_loss = (4*FN+FP)/(4*TP+TN)
+    return expected_loss
     
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
-    parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
+    parser.add_argument('--lr', type=float, required=False, default=1e-5, help='Learning rate')
     parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 

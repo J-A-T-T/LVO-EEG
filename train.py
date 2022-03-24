@@ -58,8 +58,8 @@ def main(lr, num_epoch, batch_size, num_layer):
     test = CustomDataset(torch.FloatTensor(clinical_test), torch.FloatTensor(label_test), torch.FloatTensor(eeg_test))
 
     # Create DataLoader
-    # trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-    # testloader = DataLoader(test, shuffle=False)
+    trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+    testloader = DataLoader(test, shuffle=False)
 
     # Create a model
     model = LVONet(num_layer)
@@ -84,7 +84,6 @@ def main(lr, num_epoch, batch_size, num_layer):
         train_loss = 0
         train_acc = 0
         trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-        testloader = DataLoader(test, shuffle=False)
         for (idx, batch) in enumerate(trainloader):
             inputs, labels, eegs = batch[0], batch[1], batch[2]
 
@@ -167,20 +166,25 @@ def main(lr, num_epoch, batch_size, num_layer):
 
     # Plot the 
     # Test the model 
-    # label_pred_list = []
-    # model.eval()
-    # with torch.no_grad():
-    #     for inputs in testloader:
-    #         inputs = inputs.to(device)
-    #         label_test_pred = model(inputs)
-    #         label_pred_tag = torch.round(label_test_pred)
-    #         label_pred_list.append(label_pred_tag.cpu().numpy())
+    label_pred_list = []
+    model.eval()
+    with torch.no_grad():
+        for obj in testloader:
+            test_inputs = obj[0].to(device)
+            test_labels = obj[1].to(device)
+            test_eegs = obj[2].to(device)
+            
+            label_test_pred = model(test_inputs, test_eegs)
+            label_pred_tag = torch.round(label_test_pred)
+            label_pred_list.append(label_pred_tag.cpu().numpy())
 
-    # label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
-    # # Classification report
+    label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
+    # Classification report
     
-    # print('Confusion matrix')
-    # print(confusion_matrix(label_test, label_pred_list))
+    print('Confusion matrix')
+    CM = confusion_matrix(label_test, label_pred_list)
+    print(CM)
+    print(evaluation_metric(CM))
 
     # print('Classification report')
     # print(classification_report(label_test, label_pred_list))
@@ -209,13 +213,22 @@ def binary_acc(y_pred, y_test):
     
     return acc   
     
+def evaluation_metric(CM):
+    TN = CM[0][0]
+    FP = CM[0][1]
+    FN = CM[1][0]
+    TP = CM[1][1]
+
+    expected_loss = (4*FN+FP)/(4*TP+TN)
+    return expected_loss
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
     parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
-    parser.add_argument('--num_layer', type=int, required=False, default=3, help='Number of layer')
+    parser.add_argument('--num_layer', type=int, required=False, default=2, help='Number of layer')
 
 
     args = parser.parse_args()
