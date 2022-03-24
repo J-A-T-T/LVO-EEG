@@ -18,6 +18,8 @@ from utils.plot_acc import plot_acc_loss
 from utils.plot_eeg import plot_eeg
 from pytorch_grad_cam import GradCAM
 
+from sklearn.metrics import confusion_matrix
+
 
 from models.eegnet import EEGNet
 
@@ -118,6 +120,29 @@ def main(lr, epochs, batch_size):
     
     # Save model
     torch.save(net.state_dict(), PATH)
+    
+    
+    # Plot the 
+    # Test the model 
+    label_pred_list = []
+    net.eval()
+    with torch.no_grad():
+        for obj in testloader:
+            inputs = obj[0].to(device)
+            labels = obj[1].to(device)
+            inputs, labels = Variable(inputs.to(device)), Variable(labels.to(device))
+            label_test_pred = net(inputs)
+            label_pred_tag = torch.round(label_test_pred)
+            label_pred_list.append(label_pred_tag.cpu().numpy())
+
+    label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
+    # Classification report
+    
+    print('Confusion matrix')
+    CM = confusion_matrix(y_test, label_pred_list)
+    print(CM)
+    print(evaluation_metric(CM))
+    
 
     # Plot the accuracy and loss
     plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
@@ -167,6 +192,15 @@ def binary_acc(y_pred, y_test):
     acc = torch.round(acc * 100)
     
     return acc 
+
+def evaluation_metric(CM):
+    TN = CM[0][0]
+    FP = CM[0][1]
+    FN = CM[1][0]
+    TP = CM[1][1]
+
+    expected_loss = (4*FN+FP)/(4*TP+TN)
+    return expected_loss
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
