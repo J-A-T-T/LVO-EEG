@@ -53,6 +53,7 @@ def train_svm_classifer(model_output_path):
             "kernel": ["sigmoid"],
             "C": [0.1, 1, 10, 100, 1000],
         }
+      
     ]
 
     # request probability estimation
@@ -72,14 +73,20 @@ def train_svm_classifer(model_output_path):
     print("\nBest parameters set:")
     print(clf.best_params_)
 
+    y_predict_train = clf.predict(X_train)
     y_predict=clf.predict(X_test)
 
-    print("Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, y_predict)))
+    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, y_predict_train)))
+    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, y_predict)))
 
     print("\nLoss Metric:")
     cm = confusion_matrix(y_test, y_predict)
-    eval = evaluation_metric(cm)
-    print(eval)
+    cm_train = confusion_matrix(y_train, y_predict_train)
+    eval = evaluation_metric(cm)  
+    eval_train = evaluation_metric(cm_train)
+
+    print("Train Loss : {0}".format(eval_train))
+    print("Test Loss : {0}".format(eval))
 
     print("\nClassification report:")
     print(classification_report(y_test, y_predict))
@@ -95,5 +102,5 @@ def evaluation_metric(CM):
  
 if __name__ == '__main__':
     # enter path here
-    path = r'results'
+    path = r'models\svm_model.pkl'
     train_svm_classifer(path)

@@ -9,9 +9,9 @@ from sklearn.model_selection import RandomizedSearchCV
 
 def train_test_data():
     # Load the label 
-    lvo = pd.read_csv(r"C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\df_onsite.csv")
+    lvo = pd.read_csv(r"data\df_onsite.csv")
     lvo = lvo['lvo']
-    eeg_features = pd.read_csv(r'C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\feature_processed\simple_features.csv')
+    eeg_features = pd.read_csv(r'data\feature_processed\simple_features.csv')
 
     print(eeg_features.columns)
     # Scale data
@@ -26,8 +26,8 @@ def train_test_data():
     return x_train, x_test, y_train, y_test
 
 
-def model(X_train, X_test, y_train, y_test):
-    rand_attempt1 = RandomForestClassifier(n_estimators= 1557, min_samples_split =2, min_samples_leaf= 4, max_features= 'sqrt', max_depth= 77, bootstrap= True).fit(X_train, y_train)
+def model(X_train, y_train):
+    rand_attempt1 = RandomForestClassifier(n_estimators= 1557, min_samples_split =5, min_samples_leaf= 2, max_features= 'sqrt', max_depth= 1, bootstrap= False, random_state=42).fit(X_train, y_train)
     return rand_attempt1
 
 
@@ -67,23 +67,32 @@ def evaluation_metric(CM):
 
 
 if __name__ == '__main__':
-    run_HyperParameterTuning = False
-    if input("Run HyperParameterTuning? (y/n)") == 'y':
-        run_HyperParameterTuning = True
+    run_HyperParameterTuning = True
+    
     
     
     X_train, X_test, y_train, y_test = train_test_data()
-    forest_attempt = model(X_train, X_test, y_train, y_test)
+    forest_attempt = model(X_train, y_train)
     forest_pred = preds(forest_attempt, X_test)
+    forest_pred2 = preds(forest_attempt, X_train)
 
+    forest_CM_t = confusion_matrix(y_train, forest_pred_t)
     forest_CM  = confusion_matrix(y_test,forest_pred )
-
+    forest_CM2 = confusion_matrix(y_train, forest_pred2)
     forest_F1  = accuracy_score(y_test,forest_pred )
+    forest_train = accuracy_score(y_train, forest_attempt.predict(X_train))
+    print("Forest Train Accuracy: ", forest_train)
+
 
     forest_loss  = evaluation_metric(forest_CM)
-    print(forest_F1)
+    forest_loss2 = evaluation_metric(forest_CM2)
+    print("forest Test Accuracy: ", forest_F1)	
 
-    print(forest_loss)
-    
+
+
+
+    print("Forest Test expected loss: ", forest_loss)
+    print("Forest Train expected loss: ", forest_loss2)
+
     if run_HyperParameterTuning:
         print(randomHyperParameterTuning(X_train, y_train))
