@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-import eli5
-from eli5.sklearn import PermutationImportance
+# import eli5
+# from eli5.sklearn import PermutationImportance
 
 import shap
 
@@ -164,8 +164,8 @@ def main(lr, num_epoch, batch_size):
     # Provide Grad-Cam
 
     # Permutation Importance: 
-    perm = PermutationImportance(model, random_state=1).fit(clinical_test, label_test)
-    eli5.show_weights(perm, feature_names = clinical_test.columns.tolist())
+    # perm = PermutationImportance(model, random_state=1).fit(clinical_test, label_test)
+    # eli5.show_weights(perm, feature_names = clinical_test.columns.tolist())
 
     # Save the result to the csv file
     avg_train_accs = sum(train_accs)/len(train_accs)
