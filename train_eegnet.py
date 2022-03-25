@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+import matplotlib.pyplot as plt
 
 import shap
 from sklearn.utils import shuffle
@@ -16,10 +17,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
+from pytorch_grad_cam import GradCAM
 
 from models.lvoeegnet import LVOEEGNet
 
 from utils.plot_acc import plot_acc_loss
+from utils.plot_eeg import plot_eeg
 
 def main(lr, num_epoch, batch_size):
 
@@ -59,8 +62,8 @@ def main(lr, num_epoch, batch_size):
     test = CustomDataset(torch.FloatTensor(clinical_test), torch.FloatTensor(label_test), torch.FloatTensor(eeg_test))
 
     # Create DataLoader
-    trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-    testloader = DataLoader(test, shuffle=False)
+    # trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+    # testloader = DataLoader(test, shuffle=False)
 
     # Create a model
     model = LVOEEGNet()
@@ -71,7 +74,7 @@ def main(lr, num_epoch, batch_size):
     model.to(device)
 
     # Create a Loss function and optimizer
-    criterion = nn.BCELoss()
+    # criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
 
@@ -81,12 +84,16 @@ def main(lr, num_epoch, batch_size):
     test_accs = []
     train_losses = []
     test_losses = []
-    i = 1
+    train_custom_evals = []
+    test_custom_evals = []
+    
     for epoch in range(1, epochs+1):
         train_loss = 0
         train_acc = 0
+
         trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-        #testloader = DataLoader(test, shuffle=True)
+        testloader = DataLoader(test, shuffle=False)
+        label_train_list = []
         for (idx, batch) in enumerate(trainloader):
             inputs, labels, eegs = batch[0], batch[1], batch[2]
 
@@ -98,23 +105,29 @@ def main(lr, num_epoch, batch_size):
             #Zero the parameter gradients
             optimizer.zero_grad()
 
-
             # Forward + backward + optimize
             outputs = model(inputs, eegs)
 
-            loss = criterion(outputs, labels)
+            loss = custom_lost_function(outputs, labels)
             
             acc = binary_acc(outputs, labels)
 
             loss.backward()
             optimizer.step()
 
+            label_train_tag = torch.round(outputs)
+            label_train_list.append(label_train_tag.detach().numpy())
+
             train_loss += loss.item()
             train_acc += acc.item()
-
+        
+        label_train_list = [a.squeeze().tolist() for a in label_train_list]
+        label_train_result = sum(label_train_list, [])
+        CM_train = confusion_matrix(label_train, label_train_result)
+        custom_train_evaluation = evaluation_metric(CM_train)
 
         # Test the model 
-        label_pred_list = []
+        label_test_list = []
         model.eval()
         test_loss = 0
         test_acc = 0
@@ -132,71 +145,45 @@ def main(lr, num_epoch, batch_size):
                 loss = custom_lost_function(test_outputs, test_labels)
                 acc = binary_acc(test_outputs, test_labels)
                 
+                label_test_tag = torch.round(test_outputs)
+                label_test_list.append(label_test_tag.cpu().numpy())
+
                 test_loss += loss.item()
                 test_acc += acc.item()
+            
+            label_test_list = [a.squeeze().tolist() for a in label_test_list]
+            CM_test = confusion_matrix(label_test, label_test_list)
+            custom_test_evaluation = evaluation_metric(CM_test)
 
-        print('Epoch {}: | Train Acc: {} | Test Acc: {}'.format(epoch, train_acc/len(trainloader), test_acc/len(testloader)))
+        print('Epoch {}: | Train Acc: {:.4f} | Train Custom Eval: {:.4f} | Test Acc: {:.4f} | Test Custom Eval: {:.4f}'.format(epoch, train_acc/len(trainloader), custom_train_evaluation/len(trainloader),test_acc/len(testloader), custom_test_evaluation/len(testloader)))
         train_accs.append(train_acc/len(trainloader))
         train_losses.append(train_loss/len(trainloader))
         test_accs.append(test_acc/len(testloader))
         test_losses.append(test_loss/len(testloader))
+        train_custom_evals.append(custom_train_evaluation/len(trainloader))
+        test_custom_evals.append(custom_test_evaluation/len(testloader))
         
-        if (i % 10 == 0):
-            avg_train_accs = sum(train_accs)/len(train_accs)
-            avg_train_losses = sum(train_losses)/len(train_losses)
-            avg_test_accs = sum(test_accs)/len(test_accs)
-            avg_test_losses = sum(test_losses)/len(test_losses)
-            print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
-        i += 1
 
     # Save model
     torch.save(model.state_dict(), PATH)
 
     # Plot the accuracy and loss
-    plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
+    # plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
 
     # Save the result to the csv file
     avg_train_accs = sum(train_accs)/len(train_accs)
     avg_train_losses = sum(train_losses)/len(train_losses)
+    avg_train_custom_eval = sum(train_custom_evals)/len(train_custom_evals)
     avg_test_accs = sum(test_accs)/len(test_accs)
     avg_test_losses = sum(test_losses)/len(test_losses)
-    print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
-
+    avg_test_custom_eval = sum(test_custom_evals)/len(test_custom_evals)
+    print("Train acc: {:.4f} | Train loss: {:.4f} | Train custom eval: {:.4f} | Test acc: {:.4f} | Test loss: {:.4f} | Test custom eval: {:.4f} ".format(avg_train_accs,avg_train_losses, avg_train_custom_eval, avg_test_accs,avg_test_losses, avg_test_custom_eval))
 
 
     with open('./results/result-eegnet-lvo.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
-        writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
-        
-
-    # Plot the 
-    # Test the model 
-    label_pred_list = []
-    model.eval()
-    with torch.no_grad():
-        for obj in testloader:
-            inputs = obj[0].to(device)
-            labels = obj[1].to(device)
-            eegs = obj[2].to(device)
-                 
-            label_test_pred = model(inputs, eegs)
-            label_pred_tag = torch.round(label_test_pred)
-            label_pred_list.append(label_pred_tag.cpu().numpy())
-
-    label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
-    # Classification report
+        writer.writerow([avg_train_accs, avg_train_losses, avg_train_custom_eval, avg_test_accs, avg_test_losses, avg_test_custom_eval])
     
-    print('Confusion matrix')
-    CM = confusion_matrix(label_test, label_pred_list)
-    print(CM)
-    print(evaluation_metric(CM))
-
-    # print('Classification report')
-    # print(classification_report(label_test, label_pred_list))
-
-    # # Accuracy for test set: 85-87%
-    # print('Accuracy report')
-    # print(accuracy_score(label_test, label_pred_list))
 
     # Provide SHAP values: Try other explainer than GradientExplainer
     # SHAP values represent a features's responsibility for a change in the model output 
@@ -207,7 +194,15 @@ def main(lr, num_epoch, batch_size):
     # shap.summary_plot(shap_values, x_test_values, feature_names=features)
 
     # Provide Grad-Cam
+    # instance_eeg = torch.squeeze(next(iter(testloader))[2]).detach().numpy()
+    # instance_input = torch.squeeze(next(iter(testloader))[0]).detach().numpy()
+    # plot_eeg(instance_eeg)
+    # plt.show()
 
+    # target_layers = [model.eegnet.fc1]
+    # cam = GradCAM(model=model, target_layers=target_layers)
+    # grayscale = cam(instance_eeg, instance_input)
+    
     
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
@@ -255,10 +250,8 @@ def evaluation_metric(CM):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=1, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
-
-
 
     args = parser.parse_args()
     lr = args.lr
