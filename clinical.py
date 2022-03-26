@@ -151,12 +151,6 @@ def main(lr, num_epoch, batch_size):
     print(CM)
     print(evaluation_metric(CM))
 
-    # print('Classification report')
-    # print(classification_report(label_test, label_pred_list))
-
-    # # Accuracy for test set: 85-87%
-    # print('Accuracy report')
-    # print(accuracy_score(label_test, label_pred_list))
 
     # Provide SHAP values: Try other explainer than GradientExplainer
     # SHAP values represent a features's responsibility for a change in the model output 
@@ -170,8 +164,8 @@ def main(lr, num_epoch, batch_size):
 
     # Permutation Importance: 
 
-    perm = PermutationImportance(model, random_state=1).fit(clinical_test, label_test)
-    eli5.show_weights(perm, feature_names = clinical_test.columns.tolist())
+    # perm = PermutationImportance(model, random_state=1).fit(clinical_test, label_test)
+    # eli5.show_weights(perm, feature_names = clinical_test.columns.tolist())
 
 
     # Save the result to the csv file
@@ -181,7 +175,6 @@ def main(lr, num_epoch, batch_size):
     avg_test_losses = sum(test_losses)/len(test_losses)
     print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
 
-    
 
     with open('./results/result-clinical.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
