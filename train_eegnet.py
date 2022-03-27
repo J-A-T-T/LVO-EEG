@@ -78,13 +78,12 @@ def main(lr, num_epoch, batch_size):
         # Sample elements randomly from a given list of ids, no replacement.
         train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
         test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
-
         trainloader = torch.utils.data.DataLoader(
                             dataset, 
                             batch_size=batch_size, sampler=train_subsampler)
         testloader = torch.utils.data.DataLoader(
-                            dataset,
-                            batch_size=batch_size, sampler=test_subsampler)
+                            dataset,batch_size=batch_size, 
+                             sampler=test_subsampler)
     
         # Create a model
         model = LVOEEGNet()
@@ -97,8 +96,8 @@ def main(lr, num_epoch, batch_size):
 
         # Create a Loss function and optimizer
         # criterion = nn.BCELoss()
-        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
-
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
         # Train the model on training data
         model.train() 
         train_accs = []
@@ -112,9 +111,8 @@ def main(lr, num_epoch, batch_size):
             train_loss = 0
             train_acc = 0
 
-            trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-            testloader = DataLoader(test, shuffle=False)
             label_train_list = []
+            label_train_epoch = []
             for (idx, batch) in enumerate(trainloader):
                 inputs, labels, eegs = batch[0], batch[1], batch[2]
 
@@ -129,7 +127,8 @@ def main(lr, num_epoch, batch_size):
                 # Forward + backward + optimize
                 outputs = model(inputs, eegs)
 
-                loss = custom_lost_function(outputs, labels)
+                loss = custom_lost_function(outputs, labels, device)
+                # loss = criterion(outputs, labels)
                 
                 acc = binary_acc(outputs, labels)
 
@@ -137,19 +136,24 @@ def main(lr, num_epoch, batch_size):
                 optimizer.step()
 
                 label_train_tag = torch.round(outputs)
-                label_train_list.append(label_train_tag.detach().numpy())
+
+                label_train_list.append(label_train_tag.detach().cpu().numpy())
+                label_train_epoch.append(labels.detach().cpu().numpy())
 
                 train_loss += loss.item()
                 train_acc += acc.item()
             
             label_train_list = [a.squeeze().tolist() for a in label_train_list]
             label_train_result = sum(label_train_list, [])
-            CM_train = confusion_matrix(label_train, label_train_result)
+            label_train_epoch  = [a.squeeze().tolist() for a in label_train_epoch]
+            label_train_epoch = sum(label_train_epoch, [])
+            CM_train = confusion_matrix(label_train_epoch, label_train_result)
             custom_train_evaluation = evaluation_metric(CM_train)
             # print('Epoch {}: | Train loss: {:.4f}'.format(epoch, train_loss/len(trainloader)))
 
             # Test the model 
             label_test_list = []
+            label_test_epoch = []
             model.eval()
             test_loss = 0
             test_acc = 0
@@ -160,23 +164,27 @@ def main(lr, num_epoch, batch_size):
                     test_labels = test_labels.to(device)
                     test_eegs = test_eegs.to(device)
 
-                    
                     test_outputs = model(test_inputs, test_eegs)
                     
-                    # loss = criterion(test_outputs, test_labels)
-                    loss = custom_lost_function(test_outputs, test_labels)
+                    loss = custom_lost_function(test_outputs, test_labels, device)
+                    # loss = custom_lost_function(test_outputs, test_labels)
                     acc = binary_acc(test_outputs, test_labels)
                     
                     label_test_tag = torch.round(test_outputs)
                     label_test_list.append(label_test_tag.cpu().numpy())
+                    label_test_epoch.append(test_labels.cpu().numpy())
 
                     test_loss += loss.item()
                     test_acc += acc.item()
                 
                 label_test_list = [a.squeeze().tolist() for a in label_test_list]
-                CM_test = confusion_matrix(label_test, label_test_list)
+                label_test_epoch = [a.squeeze().tolist() for a in label_test_epoch]
+                label_test_list = sum(label_test_list,[])
+                label_test_epoch = sum(label_test_epoch,[])
+                CM_test = confusion_matrix(label_test_epoch, label_test_list)
                 custom_test_evaluation = evaluation_metric(CM_test)
 
+            scheduler.step(test_loss)
             print('Epoch {}: | Train Loss: {:.4f} | Train Acc: {:.4f} | Train Custom Eval: {:.4f} | Test Loss: {:.4f} | Test Acc: {:.4f} | Test Custom Eval: {:.4f}'.format(epoch, train_loss/len(trainloader), train_acc/len(trainloader), custom_train_evaluation/len(trainloader),test_loss/len(testloader), test_acc/len(testloader), custom_test_evaluation/len(testloader)))
             train_accs.append(train_acc/len(trainloader))
             train_losses.append(train_loss/len(trainloader))
@@ -254,7 +262,7 @@ def binary_acc(y_pred, y_test):
     return acc
 
 # output is the predicted value
-def custom_lost_function(outputs, labels):
+def custom_lost_function(outputs, labels, device):
     rounded_outputs = torch.round(outputs)
 
     # confusion_vector = rounded_output / label
@@ -275,7 +283,7 @@ def custom_lost_function(outputs, labels):
         # False negative when output = 0 but labels != output (i.e., label = 1, since label can only be in {0,1})
         if (rounded_outputs[i][0] == 0) and (rounded_outputs[i][0] != labels[i][0]):
             weightArr[i] = 4.0
-    modCriterion = nn.BCELoss(weight=weightArr)
+    modCriterion = nn.BCELoss(weight=weightArr.to(device))
     return modCriterion(outputs, labels)
 
 def evaluation_metric(CM):
@@ -289,8 +297,8 @@ def evaluation_metric(CM):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
-    parser.add_argument('--lr', type=float, required=False, default=1e-4 help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
+    parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
+    parser.add_argument('--num_epoch', type=int, required=False, default=200, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()

@@ -2,7 +2,7 @@ import numpy as np
 import csv
 import pandas as pd
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, accuracy_score
-from sklearn.model_selection import train_test_split 
+from sklearn.model_selection import train_test_split, KFold
 import matplotlib.pyplot as plt
 import argparse
 
@@ -13,8 +13,11 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.optim as optim
 from utils.utils import CustomTrainDataset, CustomTestDataset 
-from torch.utils.data import Dataset, DataLoader
-from utils.plot_acc import plot_acc_loss
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
+
+from utils.plot_acc import plot_acc
+from utils.plot_loss import plot_loss
+from utils.plot_custom_eval import plot_custom_eval
 from utils.plot_eeg import plot_eeg
 from pytorch_grad_cam import GradCAM
 
@@ -24,6 +27,10 @@ from sklearn.metrics import confusion_matrix
 from models.eegnet import EEGNet
 
 def main(lr, epochs, batch_size):
+
+    # Define hyperparameters
+    k_folds = 6
+    torch.manual_seed(42) #Tuning this parameter
 
     # Save the trained model
     PATH = './pretrained/eegnet.pth'
@@ -45,79 +52,112 @@ def main(lr, epochs, batch_size):
 
     train = CustomTrainDataset(torch.FloatTensor(x_train), torch.FloatTensor(y_train))
     test = CustomTrainDataset(torch.FloatTensor(x_test), torch.FloatTensor(y_test))
+    dataset = ConcatDataset([train, test])
+
+    # Create k-fold cross validator
+    kfold = KFold(n_splits=k_folds, shuffle=True)
+    result = {}
 
     trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
     testloader = DataLoader(test, shuffle=False)
 
-    # Set up the model and optimizer
-    net = EEGNet(output=1)
+    for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
+        print('--------')
+        print('Fold {}'.format(fold))
+        print('--------')
+
+        # Sample elements randomly from a given list of ids, no replacement.
+        train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
+        test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
+
+        trainloader = torch.utils.data.DataLoader(
+                            dataset, 
+                            batch_size=batch_size, sampler=train_subsampler)
+        testloader = torch.utils.data.DataLoader(
+                            dataset,
+                            batch_size=batch_size, sampler=test_subsampler)
     
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print(device)
-    net.to(device)
-    criterion = nn.BCELoss()
-    optimizer = optim.Adam(net.parameters(), lr=lr)
 
-    test_results=[]
-    train_accs = []
-    test_accs = []
-    train_losses = []
-    test_losses = []
-    net.train()
-    for epoch in range(epochs):  # loop over the dataset multiple times
-        train_loss = 0
-        train_acc = 0
-        running_loss = 0.0
-        for (idx, batch) in enumerate(trainloader):
-            # s = i*batch_size
-            # e = i*batch_size+batch_size
-            # inputs = torch.from_numpy(x_train[s:e])
-            # labels = torch.FloatTensor(np.array([y_train[s:e]]).T*1.0)
-            inputs, labels = batch[0], batch[1]
-            # wrap them in Variable
-            inputs, labels = Variable(inputs.to(device)), Variable(labels.to(device))
-
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
-            # forward + backward + optimize
-            outputs = net(inputs)
-
-
-            loss = criterion(outputs, labels.unsqueeze(1))
-            acc = binary_acc(outputs, labels.unsqueeze(1))
-
-            loss.backward()
-            
-            optimizer.step()
-            
-            running_loss += loss.item()
-            train_loss += loss.item()
-            train_acc += acc.item()
+        # Set up the model and optimizer
+        net = EEGNet(output=1)
         
-        # Validation accuracy
-        net.eval()
-        test_loss = 0
-        test_acc = 0
-        with torch.no_grad():
-            for (idx, data) in enumerate(testloader):
-                test_inputs, test_labels = data[0], data[1]
-                test_inputs = test_inputs.to(device)
-                test_labels = test_labels.to(device)
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        print(device)
+        net.to(device)
+        criterion = nn.BCELoss()
+        optimizer = optim.Adam(net.parameters(), lr=lr)
 
-                test_outputs = net(test_inputs)
-                
-                loss = criterion(test_outputs, test_labels.unsqueeze(1))
-                acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
-                
-                test_loss += loss.item()
-                test_acc += acc.item()
-        print('Epoch {}: | Train Acc: {} | Test Acc: {}'.format(epoch, train_acc/len(trainloader), test_acc/len(testloader)))
-        train_accs.append(train_acc/len(trainloader))
-        train_losses.append(train_loss/len(trainloader))
-        test_accs.append(test_acc/len(testloader))
-        test_losses.append(test_loss/len(testloader))
+       # Train the model on training data
+        net.train() 
+        train_accs = []
+        test_accs = []
+        train_losses = []
+        test_losses = []
+        train_custom_evals = []
+        test_custom_evals = []
     
+
+        for epoch in range(1, epochs+1):
+            train_loss = 0
+            train_acc = 0
+
+            trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+            testloader = DataLoader(test, shuffle=False)
+            label_train_list = []
+
+            for (idx, batch) in enumerate(trainloader):
+                inputs, labels = batch[0], batch[1]
+                # wrap them in Variable
+                inputs, labels = Variable(inputs.to(device)), Variable(labels.to(device))
+
+                # zero the parameter gradients
+                optimizer.zero_grad()
+
+                # forward + backward + optimize
+                outputs = net(inputs)
+
+
+                loss = criterion(outputs, labels.unsqueeze(1))
+                acc = binary_acc(outputs, labels.unsqueeze(1))
+
+                loss.backward()
+                optimizer.step()
+                
+                label_train_tag = torch.round(outputs)
+                label_train_list.append(label_train_tag.detach().cpu().numpy())
+                
+                train_loss += loss.item()
+                train_acc += acc.item()
+
+            label_train_list = [a.squeeze().tolist() for a in label_train_list]
+            label_train_result = sum(label_train_list, [])
+            CM_train = confusion_matrix(label_train, label_train_result)
+            custom_train_evaluation = evaluation_metric(CM_train)
+            
+            
+            # Validation accuracy
+            net.eval()
+            test_loss = 0
+            test_acc = 0
+            with torch.no_grad():
+                for (idx, data) in enumerate(testloader):
+                    test_inputs, test_labels = data[0], data[1]
+                    test_inputs = test_inputs.to(device)
+                    test_labels = test_labels.to(device)
+
+                    test_outputs = net(test_inputs)
+                    
+                    loss = criterion(test_outputs, test_labels.unsqueeze(1))
+                    acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
+                    
+                    test_loss += loss.item()
+                    test_acc += acc.item()
+            print('Epoch {}: | Train Acc: {} | Test Acc: {}'.format(epoch, train_acc/len(trainloader), test_acc/len(testloader)))
+            train_accs.append(train_acc/len(trainloader))
+            train_losses.append(train_loss/len(trainloader))
+            test_accs.append(test_acc/len(testloader))
+            test_losses.append(test_loss/len(testloader))
+        
     # Save model
     torch.save(net.state_dict(), PATH)
     
