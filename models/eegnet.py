@@ -30,31 +30,43 @@ class EEGNet(nn.Module):
         # self.fc1 = nn.Linear(4* 2* 2231, output)
         # self.fc1 = nn.Linear(4* 2* 625, output)
 
+        self.gradient = None
+
+    def activations_hook(self, grad):
+        self.gradient = grad
+
+    def get_activations_gradient(self):
+        return self.gradient
+    
+    def get_activations(self, x):
+        return self.fc1(x)
 
     def forward(self, x):
         # Layer 1
         x = F.elu(self.conv1(x))
         x = self.batchnorm1(x)
-        x = F.dropout(x, 0.25)
+        # x = F.dropout(x, 0.25)
         x = x.permute(0, 3, 1, 2)
         
         # Layer 2
         x = self.padding1(x)
         x = F.elu(self.conv2(x))
         x = self.batchnorm2(x)
-        x = F.dropout(x, 0.25)
+        # x = F.dropout(x, 0.25)
         x = self.pooling2(x)
         
         # Layer 3
         x = self.padding2(x)
         x = F.elu(self.conv3(x))
         x = self.batchnorm3(x)
-        x = F.dropout(x, 0.25)
+        # x = F.dropout(x, 0.25)
         x = self.pooling3(x)
         
         # FC Layer
-        x = x.reshape(-1, 4 * 2 *312)
+        x = x.reshape(-1, 4 * 2 *312) 
         # x = x.reshape(-1, 4 * 2 *2231)
         # x = x.reshape(-1, 4 * 2 *625)
         x = torch.sigmoid(self.fc1(x))
+
+        # h = x.register_hook(self.activations_hook)
         return x

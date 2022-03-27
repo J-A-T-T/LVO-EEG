@@ -26,7 +26,7 @@ from models.eegnet import EEGNet
 def main(lr, epochs, batch_size):
 
     # Save the trained model
-    PATH = './pretrained/eegnet_trained.pth'
+    PATH = './pretrained/eegnet.pth'
 
     # Load the label 
     df = pd.read_csv('./data/df_onsite.csv')
@@ -104,7 +104,7 @@ def main(lr, epochs, batch_size):
                 test_inputs, test_labels = data[0], data[1]
                 test_inputs = test_inputs.to(device)
                 test_labels = test_labels.to(device)
-                
+
                 test_outputs = net(test_inputs)
                 
                 loss = criterion(test_outputs, test_labels.unsqueeze(1))
@@ -145,8 +145,8 @@ def main(lr, epochs, batch_size):
     
 
     # Plot the accuracy and loss
-    plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
-    plt.show()
+    # plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
+    # plt.show()
 
 
     # Plot the original EEG 
@@ -154,12 +154,13 @@ def main(lr, epochs, batch_size):
     # example = next(iter(testloader))[0]
     
     plot_eeg(example)
-    plt.show()
+    # plt.show()
 
     # target_layers = [net.fc1]
     # cam = GradCAM(model=net,
     #          target_layers=target_layers,
     #          use_cuda=torch.cuda.is_available()) 
+    # example = torch.FloatTensor(example.reshape(1, 1, example.shape[0], example.shape[1]))
     # grayscale = cam(example)
     # print(example.shape)
     # print(grayscale)
@@ -205,7 +206,7 @@ def evaluation_metric(CM):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=50, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=1, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()

@@ -32,7 +32,7 @@ class NeuralNet(nn.Module):
         x = self.layer2(x)
         x = self.relu(x)
         x = self.batchnorm2(x)
-        x = self.dropout(x)
+        # x = self.dropout(x)
         
         x = self.layer3(x)
         x = self.relu(x)
