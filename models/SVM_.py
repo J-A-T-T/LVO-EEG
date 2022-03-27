@@ -152,6 +152,28 @@ def train_svm_clinical(X_train, X_test, y_train, y_test):
     print("\nLinear SVM:")
     print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, linear_svc.predict(X_train))))
     print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, linear_svc.predict(X_test))))
+    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, linear_svc.predict(X_train))))
+    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, linear_svc.predict(X_test))))
+
+    print("\nRBF SVM:")
+    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, rbf_svc.predict(X_train))))
+    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, rbf_svc.predict(X_test))))
+    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, rbf_svc.predict(X_train))))
+    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, rbf_svc.predict(X_test))))
+
+
+    print("\nPoly SVM:")
+    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, poly_svc.predict(X_train))))
+    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, poly_svc.predict(X_test))))
+    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, poly_svc.predict(X_train))))
+    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, poly_svc.predict(X_test))))
+
+    print("\nSigmoid SVM:")
+    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, sigmoid_svc.predict(X_train))))
+    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, sigmoid_svc.predict(X_test))))
+    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, sigmoid_svc.predict(X_train))))
+    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, sigmoid_svc.predict(X_test))))
+
 
     return model
 
@@ -170,7 +192,7 @@ def svm_clinical():
     X_train, X_test, y_train, y_test = train_test_split(features, lvo, test_size=0.2, random_state=42)
 
     model = train_svm_clinical(X_train, X_test, y_train, y_test)
-
+    return model
 
 def svm_eeg():
     # Load the datasets
@@ -252,7 +274,7 @@ def evaluation_metric(y_true, y_pred):
     FN = CM[1][0]
     TP = CM[1][1]
 
-    expected_loss = (4*FN+FP)/(4*TP+TN)
+    expected_loss = (4*FN+FP)/(4*(TP+FP)+(TN+FN))
     return expected_loss
 
 def acc(y_true, y_pred):
@@ -260,10 +282,13 @@ def acc(y_true, y_pred):
 
  
 if __name__ == '__main__':
-  
+    
+    # Run these models to find best hyperparameters for EEG and to get results for both eeg and clincal seperately
+
     #eeg_model = svm_eeg()
     #clinical_model = svm_clinical()
 
+    # Combine best SVM models for EEG and Clinical data
     combine_eeg_clinical_models()
 
     
