@@ -60,6 +60,7 @@ def train_svm_eeg(X_train, X_test, y_train, y_test):
             "kernel": ["linear"],
             "C": [0.1, 1, 10, 100]
         },
+
         {
             "kernel": ["rbf"],
             "C": [0.1, 1, 10, 100],
@@ -82,7 +83,7 @@ def train_svm_eeg(X_train, X_test, y_train, y_test):
     # request probability estimation
     svm = SVC(probability=True)
 
-    custom_scorer = {'ACC_': make_scorer(acc, greater_is_better=True), 'ExpectedLoss':make_scorer(evaluation_metric, greater_is_better=False)}
+    custom_scorer = {'ACC_': make_scorer(acc, greater_is_better=True), 'CustomEvaluation':make_scorer(evaluation_metric, greater_is_better=False)}
 
     #custom_scorer = make_scorer(acc, greater_is_better=True)
     #custom_scorer = make_scorer(evaluation_metric, greater_is_better=False)
@@ -115,8 +116,8 @@ def train_svm_eeg(X_train, X_test, y_train, y_test):
     eval = evaluation_metric(y_test, y_predict)  
     eval_train = evaluation_metric(y_train, y_predict_train)
 
-    print("Train Loss : {0}".format(eval_train))
-    print("Test Loss : {0}".format(eval))
+    print("Train Custom Evaluation : {0}".format(eval_train))
+    print("Test Custom Evaluation : {0}".format(eval))
 
     print("\nClassification report:")
     print(classification_report(y_test, y_predict))
@@ -152,27 +153,27 @@ def train_svm_clinical(X_train, X_test, y_train, y_test):
     print("\nLinear SVM:")
     print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, linear_svc.predict(X_train))))
     print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, linear_svc.predict(X_test))))
-    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, linear_svc.predict(X_train))))
-    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, linear_svc.predict(X_test))))
+    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, linear_svc.predict(X_train))))
+    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, linear_svc.predict(X_test))))
 
     print("\nRBF SVM:")
     print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, rbf_svc.predict(X_train))))
     print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, rbf_svc.predict(X_test))))
-    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, rbf_svc.predict(X_train))))
-    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, rbf_svc.predict(X_test))))
+    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, rbf_svc.predict(X_train))))
+    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, rbf_svc.predict(X_test))))
 
 
     print("\nPoly SVM:")
     print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, poly_svc.predict(X_train))))
     print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, poly_svc.predict(X_test))))
-    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, poly_svc.predict(X_train))))
-    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, poly_svc.predict(X_test))))
+    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, poly_svc.predict(X_train))))
+    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, poly_svc.predict(X_test))))
 
     print("\nSigmoid SVM:")
     print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, sigmoid_svc.predict(X_train))))
     print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, sigmoid_svc.predict(X_test))))
-    print("Train Loss Metric: {0}".format(evaluation_metric(y_train, sigmoid_svc.predict(X_train))))
-    print("Test Loss Metric: {0}".format(evaluation_metric(y_test, sigmoid_svc.predict(X_test))))
+    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, sigmoid_svc.predict(X_train))))
+    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, sigmoid_svc.predict(X_test))))
 
 
     return model
@@ -194,22 +195,12 @@ def svm_clinical():
     model = train_svm_clinical(X_train, X_test, y_train, y_test)
     return model
 
-def svm_eeg():
+def svm_eeg(eeg_features):
     # Load the datasets
 
     clinical_features = pd.read_csv('./data/df_onsite.csv')
     lvo = clinical_features['lvo']
     clinical_features = clinical_features.drop(['lvo'], axis=1)
-
-    eeg_features = pd.read_csv(r'data\feature_processed\simple_features.csv')
-
-    # Normalize the data using z-score
-    scaler = StandardScaler()
-    scaler.fit(eeg_features)
-    transformer = FunctionTransformer(zscore)
-    eeg_features_ = transformer.transform(eeg_features)
-
-    eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
 
     X_train, X_test, y_train, y_test = train_test_split(eeg_features, lvo, test_size=0.2, random_state=42)
 
@@ -218,22 +209,33 @@ def svm_eeg():
     return model
 
 
+def normalize_data(eeg_features, feature_extraction_method):
+    if feature_extraction_method == 'simple':
+    
+        # Normalize the data using z-score
+        scaler = StandardScaler()
+        scaler.fit(eeg_features)
+        transformer = FunctionTransformer(zscore)
+        eeg_features_ = transformer.transform(eeg_features)
 
-def combine_eeg_clinical_models():
+        eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
+    
+    elif feature_extraction_method == 'wavelet':
+
+        # Normalize the data
+        scaler = StandardScaler()
+        scaler.fit(eeg_features)
+        eeg_features_ = scaler.transform(eeg_features)
+
+        eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
+
+    return eeg_features
+
+def combine_eeg_clinical_models(eeg_features, feature_extraction_method):
     # Load the datasets
     clinical_features = pd.read_csv('./data/df_onsite.csv')
     lvo = clinical_features['lvo']
     clinical_features = clinical_features.drop(['lvo'], axis=1)
-
-    eeg_features = pd.read_csv(r'data\feature_processed\simple_features.csv')
-
-    # Normalize the data using z-score
-    scaler = StandardScaler()
-    scaler.fit(eeg_features)
-    transformer = FunctionTransformer(zscore)
-    eeg_features_ = transformer.transform(eeg_features)
-
-    eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
 
     # Combine eeg and clinical features
     all_features = pd.concat([eeg_features, clinical_features], axis=1)
@@ -250,19 +252,24 @@ def combine_eeg_clinical_models():
     X_test_list = [X_test_eeg, X_test_clinical]
     
     # The models
-    classifiers = [('svc1', SVC(kernel='poly', C=0.1, degree=2, probability=True)),
-    ('svc2', SVC(kernel="linear", C=1, probability=True))]
+    if feature_extraction_method == 'simple':
+        classifiers = [('svc1', SVC(kernel='poly', C=0.1, degree=2, probability=True)),
+        ('svc2', SVC(kernel="linear", C=1, probability=True))]
+
+    elif feature_extraction_method == 'wavelet':
+        classifiers = [('svc1', SVC(C= 0.1, kernel= 'sigmoid', probability=True)),
+        ('svc2', SVC(kernel="linear", C=1, probability=True))]
 
     fitted_estimators, label_encoder = fit_multiple_estimators(classifiers, X_train_list, y_train)
 
     y_pred = predict_from_multiple_estimator(fitted_estimators, label_encoder, X_test_list)
     y_pred_train = predict_from_multiple_estimator(fitted_estimators, label_encoder, X_train_list)
 
-    print("Train Accuracy and Loss:")
+    print("Train Accuracy and Custom Evaluation:")
     print(accuracy_score(y_train, y_pred_train))
     print(evaluation_metric(y_train, y_pred_train))
 
-    print("Test Accuracy and Loss:")
+    print("Test Accuracy and Custom Evaluation:")
     print(accuracy_score(y_test, y_pred))
     print(evaluation_metric(y_test, y_pred))
 
@@ -285,11 +292,18 @@ if __name__ == '__main__':
     
     # Run these models to find best hyperparameters for EEG and to get results for both eeg and clincal seperately
 
-    #eeg_model = svm_eeg()
+    eeg_features1 = pd.read_csv(r'data\feature_processed\simple_features.csv')
+    eeg_features2 = pd.read_csv(r'data\feature_processed\features.csv')
+
+    eeg_features1 = normalize_data(eeg_features1, 'simple')
+    eeg_features2 = normalize_data(eeg_features2, 'wavelet')
+    #eeg_model = svm_eeg(eeg_features1, 'simple')
+    eeg_model = svm_eeg(eeg_features2)
     #clinical_model = svm_clinical()
 
     # Combine best SVM models for EEG and Clinical data
-    combine_eeg_clinical_models()
+    #combine_eeg_clinical_models(eeg_features1, 'simple')
+    combine_eeg_clinical_models(eeg_features2, 'wavelet')
 
     
     

@@ -23,7 +23,7 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 
-def model():
+def model(eeg_features, feature_extraction_method):
     # A parameter grid for XGBoost
     params = {
         'min_child_weight': [1, 3, 5, 10],
@@ -39,15 +39,6 @@ def model():
     lvo = clinical_features['lvo']
     clinical_features = clinical_features.drop(['lvo'], axis=1)
 
-    eeg_features = pd.read_csv(r'data\feature_processed\simple_features.csv')
-
-    # Normalize the data using z-score
-    scaler = StandardScaler()
-    scaler.fit(eeg_features)
-    transformer = FunctionTransformer(zscore)
-    eeg_features_ = transformer.transform(eeg_features)
-
-    eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
 
     all_features = pd.concat([eeg_features, clinical_features], axis=1)
 
@@ -55,7 +46,7 @@ def model():
 
     xgb = XGBClassifier(learning_rate=0.02, objective='binary:logistic', nthread=1, verbosity=0, silent=True)
 
-    custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'ExpectedLoss':make_scorer(evaluation_metric, greater_is_better=False)}
+    custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
     #custom_scorer = make_scorer(acc, greater_is_better=True)
     grid = GridSearchCV(estimator=xgb, param_grid=params, scoring=custom_scorer, n_jobs=4, cv=5, verbose=3, refit='ACC' )
     grid.fit(X_train, y_train)
@@ -76,13 +67,13 @@ def model():
     print("Train Accuracy: {0}".format(accuracy_score(y_train, y_predict_train)))
     print("Test Accuracy: {0}".format(accuracy_score(y_test, y_predict)))
 
-    print("\nLoss Metric:")
+    print("\nCustom Evaluation:")
 
     eval = evaluation_metric(y_test, y_predict)  
     eval_train = evaluation_metric(y_train, y_predict_train)
 
-    print("Train Loss : {0}".format(eval_train))
-    print("Test Loss : {0}".format(eval))
+    print("Train Custom Evaluation Metric : {0}".format(eval_train))
+    print("Test Custom Evaluation Metric : {0}".format(eval))
 
     test_probs = grid.predict_proba(X_test)[:,1]
     print(test_probs)
@@ -106,7 +97,29 @@ def model():
     plt.xticks(range(len(feature_imps)), X_train.columns)
     plt.show()
 
+
+def normalize_data(eeg_features, feature_extraction_method):
+    if feature_extraction_method == 'simple':
     
+        # Normalize the data using z-score
+        scaler = StandardScaler()
+        scaler.fit(eeg_features)
+        transformer = FunctionTransformer(zscore)
+        eeg_features_ = transformer.transform(eeg_features)
+
+        eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
+    
+    elif feature_extraction_method == 'wavelet':
+
+        # Normalize the data
+        scaler = StandardScaler()
+        scaler.fit(eeg_features)
+        eeg_features_ = scaler.transform(eeg_features)
+
+        eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
+
+    return eeg_features
+
 
 def acc(y_true, y_pred):
     return accuracy_score(y_true, y_pred)
@@ -125,6 +138,14 @@ def evaluation_metric(y_true, y_pred):
 
 if __name__ == '__main__':
     
-    model()
+    eeg_features1 = pd.read_csv(r'data\feature_processed\simple_features.csv')
+    eeg_features2 = pd.read_csv(r'data\feature_processed\features.csv')
+
+    eeg_features1 = normalize_data(eeg_features1, 'simple')
+    eeg_features2 = normalize_data(eeg_features2, 'wavelet')
+
+    #model(eeg_features1, 'simple')
+    model(eeg_features2, 'wavelet')
+
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
