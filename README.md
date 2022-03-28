@@ -7,8 +7,12 @@ A predictor for LVO non LVO
 
 
 
-Install mne:
-    pip install mne
+## Requirements:
+pip install:
+* mne
+* gradcam
+* pywavelets
+
 
 
 
