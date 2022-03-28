@@ -204,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, required=False,
                         default=1e-4, help='Learning rate')
     parser.add_argument('--num_epoch', type=int, required=False,
-                        default=50, help='Number of epoch')
+                        default=1, help='Number of epoch')
     parser.add_argument('--batch_size', type=int,
                         required=False, default=4, help='Size of batch')
     parser.add_argument('--num_layers', type=int, required=False,

@@ -5,7 +5,7 @@ from math import e
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, KFold
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 
 import shap
@@ -78,10 +78,10 @@ def main(lr, num_epoch, batch_size):
         # Sample elements randomly from a given list of ids, no replacement.
         train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
         test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
-        trainloader = torch.utils.data.DataLoader(
+        trainloader = DataLoader(
                             dataset, 
                             batch_size=batch_size, sampler=train_subsampler)
-        testloader = torch.utils.data.DataLoader(
+        testloader = DataLoader(
                             dataset,batch_size=batch_size, 
                              sampler=test_subsampler)
     
@@ -99,15 +99,16 @@ def main(lr, num_epoch, batch_size):
         optimizer = optim.Adam(model.parameters(), lr=lr)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
         # Train the model on training data
-        model.train() 
+        
         train_accs = []
         test_accs = []
         train_losses = []
         test_losses = []
         train_custom_evals = []
         test_custom_evals = []
-        
+        model.train() 
         for epoch in range(1, epochs+1):
+            
             train_loss = 0
             train_acc = 0
 
@@ -214,10 +215,10 @@ def main(lr, num_epoch, batch_size):
     train_custom_eval  = (np.array(result[0]["train_custom_eval"]) + np.array(result[1]["train_custom_eval"]) + np.array(result[2]["train_custom_eval"]) + np.array(result[3]["train_custom_eval"]) + np.array(result[4]["train_custom_eval"]) + np.array(result[5]["train_custom_eval"]))/6
     test_custom_eval = (np.array(result[0]["test_custom_eval"]) + np.array(result[1]["test_custom_eval"]) + np.array(result[2]["test_custom_eval"]) + np.array(result[3]["test_custom_eval"]) + np.array(result[4]["test_custom_eval"]) + np.array(result[5]["test_custom_eval"]))/6
     
-    print("The average performance of {}-fold CV".format(fold))
-    print("The average loss of {}-fold CV: {:.4f}".format(fold, avg_loss))
-    print("The average accuracy of {}-fold CV: {:.4f} ".format(fold, avg_acc))
-    print("The average custom evaluation of {}-fold CV: {:.4f}".format(fold, avg_custom_eval))
+    print("The average performance of {}-fold CV".format(k_folds))
+    print("The average custom loss of {}-fold CV: {:.4f}".format(k_folds, avg_loss))
+    print("The average accuracy of {}-fold CV: {:.4f} ".format(k_folds, avg_acc))
+    print("The average custom evaluation of {}-fold CV: {:.4f}".format(k_folds, avg_custom_eval))
 
     # Save model
     torch.save(model.state_dict(), PATH)
@@ -292,7 +293,7 @@ def evaluation_metric(CM):
     FN = CM[1][0]
     TP = CM[1][1]
 
-    expected_loss = (4*FN+FP)/(TP+TN)
+    expected_loss = (4*FN+FP)/(4*(TP+FP)+TN+FN)
     return expected_loss
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+from sched import scheduler
 import numpy as np
 import csv
 import pandas as pd
@@ -58,8 +59,8 @@ def main(lr, epochs, batch_size):
     kfold = KFold(n_splits=k_folds, shuffle=True)
     result = {}
 
-    trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-    testloader = DataLoader(test, shuffle=False)
+    # trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+    # testloader = DataLoader(test, shuffle=False)
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
         print('--------')
@@ -86,6 +87,7 @@ def main(lr, epochs, batch_size):
         net.to(device)
         criterion = nn.BCELoss()
         optimizer = optim.Adam(net.parameters(), lr=lr)
+        
 
        # Train the model on training data
         net.train() 
@@ -101,10 +103,8 @@ def main(lr, epochs, batch_size):
             train_loss = 0
             train_acc = 0
 
-            trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
-            testloader = DataLoader(test, shuffle=False)
             label_train_list = []
-
+            label_train_epoch = []
             for (idx, batch) in enumerate(trainloader):
                 inputs, labels = batch[0], batch[1]
                 # wrap them in Variable
@@ -125,13 +125,16 @@ def main(lr, epochs, batch_size):
                 
                 label_train_tag = torch.round(outputs)
                 label_train_list.append(label_train_tag.detach().cpu().numpy())
+                label_train_epoch.append(labels.detach().cpu().numpy())
                 
                 train_loss += loss.item()
                 train_acc += acc.item()
 
             label_train_list = [a.squeeze().tolist() for a in label_train_list]
             label_train_result = sum(label_train_list, [])
-            CM_train = confusion_matrix(label_train, label_train_result)
+            label_train_epoch  = [a.squeeze().tolist() for a in label_train_epoch]
+            label_train_epoch = sum(label_train_epoch, [])
+            CM_train = confusion_matrix(label_train_epoch, label_train_result)
             custom_train_evaluation = evaluation_metric(CM_train)
             
             
@@ -139,6 +142,8 @@ def main(lr, epochs, batch_size):
             net.eval()
             test_loss = 0
             test_acc = 0
+            label_test_list = []
+            label_test_epoch = []
             with torch.no_grad():
                 for (idx, data) in enumerate(testloader):
                     test_inputs, test_labels = data[0], data[1]
@@ -150,38 +155,66 @@ def main(lr, epochs, batch_size):
                     loss = criterion(test_outputs, test_labels.unsqueeze(1))
                     acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
                     
+                    label_test_tag = torch.round(test_outputs)
+                    label_test_list.append(label_test_tag.cpu().numpy())
+                    label_test_epoch.append(test_labels.cpu().numpy())
+
                     test_loss += loss.item()
                     test_acc += acc.item()
-            print('Epoch {}: | Train Acc: {} | Test Acc: {}'.format(epoch, train_acc/len(trainloader), test_acc/len(testloader)))
+            
+                label_test_list = [a.squeeze().tolist() for a in label_test_list]
+                label_test_epoch = [a.squeeze().tolist() for a in label_test_epoch]
+                label_test_list = sum(label_test_list,[])
+                label_test_epoch = sum(label_test_epoch,[])
+                CM_test = confusion_matrix(label_test_epoch, label_test_list)
+                custom_test_evaluation = evaluation_metric(CM_test)
+
+            print('Epoch {}: | Train Loss: {:.4f} | Train Acc: {:.4f} | Train Custom Eval: {:.4f} | Test Loss: {:.4f} | Test Acc: {:.4f} | Test Custom Eval: {:.4f}'.format(epoch, train_loss/len(trainloader), train_acc/len(trainloader), custom_train_evaluation/len(trainloader),test_loss/len(testloader), test_acc/len(testloader), custom_test_evaluation/len(testloader)))
             train_accs.append(train_acc/len(trainloader))
             train_losses.append(train_loss/len(trainloader))
             test_accs.append(test_acc/len(testloader))
             test_losses.append(test_loss/len(testloader))
+            train_custom_evals.append(custom_train_evaluation/len(trainloader))
+            test_custom_evals.append(custom_test_evaluation/len(testloader))
         
+        avg_train_accs = sum(train_accs)/len(train_accs)
+        avg_train_losses = sum(train_losses)/len(train_losses)
+        avg_train_custom_eval = sum(train_custom_evals)/len(train_custom_evals)
+        avg_test_accs = sum(test_accs)/len(test_accs)
+        avg_test_losses = sum(test_losses)/len(test_losses)
+        avg_test_custom_eval = sum(test_custom_evals)/len(test_custom_evals)
+        print("Fold: {} | Test loss: {:.4f} | Test acc: {:.4f} | Test custom eval: {:.4f} ".format(fold, avg_test_losses, avg_test_accs, avg_test_custom_eval))
+
+        result[fold] = {"avg_test_accs": avg_test_accs, "avg_test_losses": avg_test_losses, "avg_test_custom_eval": avg_test_custom_eval, "train_accs": train_accs, "train_losses":train_losses, "train_custom_eval": train_custom_evals, "test_accs": test_accs, "test_losses": test_losses, "test_custom_eval": test_custom_evals}
+
+    avg_loss = (result[0]["avg_test_losses"] + result[1]["avg_test_losses"] + result[2]["avg_test_losses"] + result[3]["avg_test_losses"] + result[4]["avg_test_losses"] + result[5]["avg_test_losses"])/6
+    avg_acc = (result[0]["avg_test_accs"] + result[1]["avg_test_accs"] + result[2]["avg_test_accs"] + result[3]["avg_test_accs"] + result[4]["avg_test_accs"] + result[5]["avg_test_accs"])/6
+    avg_custom_eval = (result[0]["avg_test_custom_eval"] + result[1]["avg_test_custom_eval"] + result[2]["avg_test_custom_eval"] + result[3]["avg_test_custom_eval"] + result[4]["avg_test_custom_eval"] + result[5]["avg_test_custom_eval"])/6
+
+    train_loss = (np.array(result[0]["train_losses"]) + np.array(result[1]["train_losses"]) + np.array(result[2]["train_losses"]) + np.array(result[3]["train_losses"]) + np.array(result[4]["train_losses"]) + np.array(result[5]["train_losses"]))/6
+    test_loss = (np.array(result[0]["test_losses"]) + np.array(result[1]["test_losses"]) + np.array(result[2]["test_losses"]) + np.array(result[3]["test_losses"]) + np.array(result[4]["test_losses"]) + np.array(result[5]["test_losses"]))/6
+    train_acc = (np.array(result[0]["train_accs"]) + np.array(result[1]["train_accs"]) + np.array(result[2]["train_accs"]) + np.array(result[3]["train_accs"]) + np.array(result[4]["train_accs"]) + np.array(result[5]["train_accs"]))/6
+    test_acc = (np.array(result[0]["test_accs"]) + np.array(result[1]["test_accs"]) + np.array(result[2]["test_accs"]) + np.array(result[3]["test_accs"]) + np.array(result[4]["test_accs"]) + np.array(result[5]["test_accs"]))/6
+    train_custom_eval  = (np.array(result[0]["train_custom_eval"]) + np.array(result[1]["train_custom_eval"]) + np.array(result[2]["train_custom_eval"]) + np.array(result[3]["train_custom_eval"]) + np.array(result[4]["train_custom_eval"]) + np.array(result[5]["train_custom_eval"]))/6
+    test_custom_eval = (np.array(result[0]["test_custom_eval"]) + np.array(result[1]["test_custom_eval"]) + np.array(result[2]["test_custom_eval"]) + np.array(result[3]["test_custom_eval"]) + np.array(result[4]["test_custom_eval"]) + np.array(result[5]["test_custom_eval"]))/6
+    
+    print("The average performance of {}-fold CV".format(k_folds))
+    print("The average custom loss of {}-fold CV: {:.4f}".format(k_folds, avg_loss))
+    print("The average accuracy of {}-fold CV: {:.4f} ".format(k_folds, avg_acc))
+    print("The average custom evaluation of {}-fold CV: {:.4f}".format(k_folds, avg_custom_eval))
+
     # Save model
     torch.save(net.state_dict(), PATH)
-    
-    
-    # Plot the 
-    # Test the model 
-    label_pred_list = []
-    net.eval()
-    with torch.no_grad():
-        for obj in testloader:
-            inputs = obj[0].to(device)
-            labels = obj[1].to(device)
-            inputs, labels = Variable(inputs.to(device)), Variable(labels.to(device))
-            label_test_pred = net(inputs)
-            label_pred_tag = torch.round(label_test_pred)
-            label_pred_list.append(label_pred_tag.cpu().numpy())
 
-    label_pred_list = [a.squeeze().tolist() for a in label_pred_list]
-    # Classification report
+    # Plot the accuracy, loss, and 
+    # plot_loss(train_loss, test_loss, "Loss")
+    # plot_acc(train_acc, test_acc, "Acc")
+    # plot_custom_eval(train_custom_eval, test_custom_eval, "Custom Evaluation")
+
+    with open('./results/result-eegnet.csv','w') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow([avg_loss, avg_acc, avg_custom_eval])
     
-    print('Confusion matrix')
-    CM = confusion_matrix(y_test, label_pred_list)
-    print(CM)
-    print(evaluation_metric(CM))
     
 
     # Plot the accuracy and loss
@@ -190,11 +223,13 @@ def main(lr, epochs, batch_size):
 
 
     # Plot the original EEG 
-    example = torch.squeeze(next(iter(testloader))[0]).cpu().detach().numpy()
+    example = torch.squeeze(next(iter(testloader))[0][1]).cpu().detach().numpy()
     # example = next(iter(testloader))[0]
-    
+    # print(example.size())
+    # print(example.shape)
+    # exit()
     plot_eeg(example)
-    # plt.show()
+    plt.show()
 
     # target_layers = [net.fc1]
     # cam = GradCAM(model=net,
@@ -209,19 +244,6 @@ def main(lr, epochs, batch_size):
 
     # Plot the predicted EEG
     
-    # Save the result to the csv file
-    avg_train_accs = sum(train_accs)/len(train_accs)
-    avg_train_losses = sum(train_losses)/len(train_losses)
-    avg_test_accs = sum(test_accs)/len(test_accs)
-    avg_test_losses = sum(test_losses)/len(test_losses)
-    print("Train acc: {} | Train loss: {} | Test acc: {} | Test loss: {}".format(avg_train_accs,avg_train_losses, avg_test_accs,avg_test_losses))
-
-    
-
-    with open('./results/result-eegnet.csv','w') as f:
-        writer = csv.writer(f, delimiter=',')
-        writer.writerow([avg_train_accs, avg_train_losses, avg_test_accs, avg_test_losses])
-        
 
 
 
@@ -240,7 +262,7 @@ def evaluation_metric(CM):
     FN = CM[1][0]
     TP = CM[1][1]
 
-    expected_loss = (4*FN+FP)/(4*TP+TN)
+    expected_loss = (4*FN+FP)/(4*(TP+FP)+TN+FN)
     return expected_loss
 
 if __name__ == "__main__":

@@ -264,7 +264,7 @@ def evaluation_metric(CM):
     FN = CM[1][0]
     TP = CM[1][1]
 
-    expected_loss = (4*FN+FP)/(4*TP+TN)
+    expected_loss = (4*FN+FP)/(4*(TP+FP)+TN+FN)
     return expected_loss
     
 
