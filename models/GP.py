@@ -2,8 +2,10 @@ import warnings
 import matplotlib
 warnings.filterwarnings('ignore')
 
+from sklearn.exceptions import ConvergenceWarning
 with warnings.catch_warnings():
         warnings.simplefilter('ignore')
+warnings.simplefilter("ignore", category=ConvergenceWarning)
 
 import numpy as np
 import pandas as pd
@@ -22,7 +24,7 @@ from scipy.stats import zscore
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
-from sklearn.gaussian_process.kernels import RBF, DotProduct, Matern, RationalQuadratic, WhiteKernel
+from sklearn.gaussian_process.kernels import RBF, DotProduct, Matern, RationalQuadratic, WhiteKernel, ExpSineSquared
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.model_selection import RepeatedStratifiedKFold
 
@@ -42,12 +44,12 @@ def model(eeg_features, feature_extraction_method):
     gp = GaussianProcessClassifier()
     # define grid
     params = dict()
-    params['kernel'] = [1*RBF(), 1*DotProduct(), 1*Matern(),  1*RationalQuadratic(), 1*WhiteKernel()]
+    params['kernel'] = [1*RBF(), 1*DotProduct(), 1*Matern(),  1*RationalQuadratic(), 1*WhiteKernel(), 1.0 * ExpSineSquared()]
     custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
     #custom_scorer = make_scorer(acc, greater_is_better=True)
 
     # define search
-    grid = GridSearchCV(gp, params, scoring=custom_scorer, cv=5, n_jobs=-1, refit='ACC')
+    grid = GridSearchCV(gp, params, scoring=custom_scorer, cv=5, refit='ACC')
 
     grid.fit(X_train, y_train)
     print('\n All results:')

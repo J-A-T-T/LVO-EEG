@@ -48,7 +48,7 @@ def model(eeg_features, feature_extraction_method):
 
     custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
     #custom_scorer = make_scorer(acc, greater_is_better=True)
-    grid = GridSearchCV(estimator=xgb, param_grid=params, scoring=custom_scorer, n_jobs=4, cv=5, verbose=3, refit='ACC' )
+    grid = GridSearchCV(estimator=xgb, param_grid=params, scoring=custom_scorer, cv=5, verbose=3, refit='ACC' )
     grid.fit(X_train, y_train)
     print('\n All results:')
     print(grid.cv_results_)
