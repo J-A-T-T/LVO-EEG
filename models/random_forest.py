@@ -9,25 +9,23 @@ from sklearn.model_selection import RandomizedSearchCV
 
 def train_test_data():
     # Load the label 
-    lvo = pd.read_csv(r"data\df_onsite.csv")
+    lvo = pd.read_csv(r"..\data\df_onsite.csv")
     lvo = lvo['lvo']
-    eeg_features = pd.read_csv(r'data\feature_processed\simple_features.csv')
+    eeg_features = pd.read_csv(r'..\data\feature_processed\features.csv')
 
     print(eeg_features.columns)
     # Scale data
-    scaler = StandardScaler()
-    scaler.fit(eeg_features)
-
-    # transformer = FunctionTransformer(zscore)
-    eeg_features = scaler.transform(eeg_features)
+    # scaler = StandardScaler()
+    # scaler.fit(eeg_features)
+    # eeg_features = scaler.transform(eeg_features)
     # Split into training set and test set
-    x_train, x_test, y_train,  y_test = train_test_split(eeg_features, lvo, test_size=0.3)
+    x_train, x_test, y_train,  y_test = train_test_split(eeg_features, lvo, test_size=0.3, random_state=42)
     
     return x_train, x_test, y_train, y_test
 
 
 def model(X_train, y_train):
-    rand_attempt1 = RandomForestClassifier(n_estimators= 1557, min_samples_split =5, min_samples_leaf= 2, max_features= 'sqrt', max_depth= 1, bootstrap= False, random_state=42).fit(X_train, y_train)
+    rand_attempt1 = RandomForestClassifier(n_estimators= 1557, min_samples_split =2, min_samples_leaf= 4, max_features= 'sqrt', max_depth= 1, bootstrap= True).fit(X_train, y_train)
     return rand_attempt1
 
 
@@ -67,7 +65,9 @@ def evaluation_metric(CM):
 
 
 if __name__ == '__main__':
-    run_HyperParameterTuning = True
+    run_HyperParameterTuning = False
+    if input("Run HyperParameterTuning? (y/n)") == 'y':
+        run_HyperParameterTuning = True
     
     
     
@@ -76,7 +76,6 @@ if __name__ == '__main__':
     forest_pred = preds(forest_attempt, X_test)
     forest_pred2 = preds(forest_attempt, X_train)
 
-    forest_CM_t = confusion_matrix(y_train, forest_pred_t)
     forest_CM  = confusion_matrix(y_test,forest_pred )
     forest_CM2 = confusion_matrix(y_train, forest_pred2)
     forest_F1  = accuracy_score(y_test,forest_pred )
@@ -96,3 +95,4 @@ if __name__ == '__main__':
 
     if run_HyperParameterTuning:
         print(randomHyperParameterTuning(X_train, y_train))
+
