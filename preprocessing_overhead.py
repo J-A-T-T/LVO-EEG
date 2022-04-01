@@ -9,12 +9,23 @@ directory = r'C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\115'
 
 
 # create a Preprocessing object
-preprocessing = pp()
-preprocessing.createSimpleExtractionCSV(directory)
-# for filename in os.listdir(directory):
-#     f = os.path.join(directory, filename)
-#     # checking if it is a file
-#     if os.path.isfile(f):
-#         returned_df = preprocessing.preprocess(f)
-#         if returned_df is not None:
-#             preprocessing.save_data(f, returned_df)
+print("What do you want to do")
+print("1. Fractal decomposition for EEG")
+print("2. clean eeg data")
+print("3. Fractal decomposition for ACC and Gyro")
+x = int(input("Enter 1,2 or 3\n"))
+if x == 1:  
+    preprocessing = pp()
+    preprocessing.createSimpleExtractionCSVEEG(directory)
+elif x == 2:
+    for filename in os.listdir(directory):
+        f = os.path.join(directory, filename)
+        # checking if it is a file
+        if os.path.isfile(f):
+            returned_df = preprocessing.preprocess(f)
+            if returned_df is not None:
+                preprocessing.save_data(f, returned_df)
+elif x ==3:
+    preprocessing = pp()
+    preprocessing.createSimpleExtractionCSVACC(directory)
+    preprocessing.createSimpleExtractionCSVGYRO(directory)

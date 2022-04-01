@@ -45,6 +45,37 @@ class Preprocessing():
         pure_raw = mne.io.RawArray(np.transpose(bigarray), info)
         return pure_raw
     
+    def simpleExtractionMotion(self, filename, acc=True):
+        # load in the data
+        df = pd.read_csv(filename)
+
+        #remove timestamps and sequence ID
+        if len(df.columns)<=5:#Other format see file 99
+            df.drop(df.columns[[0,-1]], axis=1, inplace=True)
+        else: #typical format
+            df.drop(df.columns[[0, 1,-1]],axis=1,inplace=True)
+        if acc:
+            remainder = "_ACC_baseline_stroke_study_updated.csv"
+        else:
+            remainder = "_GYRO_baseline_stroke_study_updated.csv"
+        y = "data/feature_processing/" + filename.split("\\")[-1][:3] + remainder
+        df.to_csv(y, index=False)
+        # helper = eeg.helpers.CSVHelper(y, lowpass=30, highpass=0.5, normalize=True, ICA=True, windowSize=128)
+        
+        
+        helper = eeg.helpers.CSVHelper(y)
+        wrap = eeg.wrapper.Wrapper(helper)
+
+        for egg in helper:
+            egg.PFD()
+        wrap.addFeature.HFD()
+        wrap.addFeature.DFA()
+        features = wrap.getFeatures()
+        tiny = list(features)
+        tiny.pop()
+        return tiny
+
+
     def simpleExtraction(self, filename):
         """
         Extracts simple features from file and places the data
@@ -70,7 +101,7 @@ class Preprocessing():
         return tiny
         
 
-    def createSimpleExtractionCSV(self, directory):
+    def createSimpleExtractionCSVEEG(self, directory):
         """
         Creates a csv file for each participant
         :param filename:
@@ -95,6 +126,48 @@ class Preprocessing():
                     print(i, tiny_key)
         new_df.to_csv("data/feature_processed/simple_features.csv", index=False)
         
+
+    def createSimpleExtractionCSVACC(self, directory):
+        self.visited = set()
+        new_df = pd.DataFrame(columns=("HFD0", "HFD1", "HFD2", "DFA0", "DFA1", "DFA2"))
+        # create a Preprocessing object
+        i = 0
+        for filename in os.listdir(directory):
+            f = os.path.join(directory, filename)
+            # checking if it is a file
+            if os.path.isfile(f):
+                tiny_key = int(f.split("\\")[-1][:3])
+                if "ACC_baseline" not in f and "ACC" not in f or tiny_key in self.visited:
+                    continue
+                returned_list = self.simpleExtractionMotion(f, acc=True)
+                print(len(returned_list), returned_list)
+                if returned_list is not None:
+                    new_df.loc[i] = returned_list
+                    i += 1
+                    self.visited.add(tiny_key)
+                    print(i, tiny_key)
+        new_df.to_csv("data/feature_processed/simple_acc_features.csv", index=False)
+
+
+    def createSimpleExtractionCSVGYRO(self, directory):
+        self.visited = set()
+        new_df = pd.DataFrame(columns=("HFD0", "HFD1", "HFD2",  "DFA0", "DFA1", "DFA2"))
+        # create a Preprocessing object
+        i = 0
+        for filename in os.listdir(directory):
+            f = os.path.join(directory, filename)
+            # checking if it is a file
+            if os.path.isfile(f):
+                tiny_key = int(f.split("\\")[-1][:3])
+                if "GYRO_baseline" not in f and "GYRO" not in f or tiny_key in self.visited:
+                    continue
+                returned_list = self.simpleExtractionMotion(f, acc=False)
+                if returned_list is not None:
+                    new_df.loc[i] = returned_list
+                    i += 1
+                    self.visited.add(tiny_key)
+                    print(i, tiny_key)
+        new_df.to_csv("data/feature_processed/simple_gyro_features.csv", index=False)
 
 
     def preprocess(self, data):
