@@ -7,6 +7,8 @@ import os
 class Preprocessing():
     def __init__(self):
         self.visited = set()
+        self.visited_acc = set()
+        self.visited_gyro = set()
 
     def save_data(self, filename, data):
         """
@@ -224,3 +226,49 @@ class Preprocessing():
         done.pick_types(meg=False, eeg=True, ecg=False, stim=False)
         self.visited.add(tiny_key)
         return done.to_data_frame()
+    
+    def preprocessMotion(self, directory):
+        """
+        Preprocesses the data.
+        :param data:
+        :return: preprocessed data
+        """
+        self.visited_acc = set()
+        self.visited_gyro = set()
+        for filename in os.listdir(directory):
+            f = os.path.join(directory, filename)
+            # checking if it is a file
+            if os.path.isfile(f):
+                tiny_key = int(f.split("\\")[-1][:3])
+                if "ACC" in f and tiny_key not in self.visited_acc:
+                    preprocessed_data = self.preprocessMotionACCGYRO(f, acc=True)
+                    self.visited_acc.add(tiny_key)
+                if "GYRO" in f and tiny_key not in self.visited_gyro:
+                    preprocessed_data = self.preprocessMotionACCGYRO(f, acc=False)
+                    self.visited_gyro.add(tiny_key)
+                
+    
+    def preprocessMotionACCGYRO(self, data, acc=True):
+        """
+        Preprocesses the data.
+        :param data:
+        :return: preprocessed data
+        """
+        df = pd.read_csv(data)
+        df = df.rename({'': 'Time'}, axis=1)  # new method
+
+        #remove timestamps and sequence ID
+        if len(df.columns)<=5:#Other format see file 99
+            df.drop(df.columns[[0,-1]], axis=1, inplace=True)
+        else: #typical format
+            df.drop(df.columns[[0, 1,-1]],axis=1,inplace=True)
+        if acc:
+            remainder = "_ACC_baseline_stroke_study_updated.csv"
+        else:
+            remainder = "_GYRO_baseline_stroke_study_updated.csv"
+        y = "data/feature_processing/" + data.split("\\")[-1][:3] + remainder
+        df.to_csv(y, index=True)
+
+
+        
+

@@ -13,7 +13,8 @@ print("What do you want to do")
 print("1. Fractal decomposition for EEG")
 print("2. clean eeg data")
 print("3. Fractal decomposition for ACC and Gyro")
-x = int(input("Enter 1,2 or 3\n"))
+print("4. clean acc and gyro data")
+x = int(input("Enter 1,2,3,4\n"))
 if x == 1:  
     preprocessing = pp()
     preprocessing.createSimpleExtractionCSVEEG(directory)
@@ -29,3 +30,8 @@ elif x ==3:
     preprocessing = pp()
     preprocessing.createSimpleExtractionCSVACC(directory)
     preprocessing.createSimpleExtractionCSVGYRO(directory)
+elif x == 4:
+    preprocessing = pp()
+    preprocessing.preprocessMotion(directory)
+else:
+    print("Invalid input")
