@@ -2,17 +2,17 @@ import warnings
 import matplotlib
 warnings.filterwarnings('ignore')
 
+from sklearn.model_selection import cross_val_score, cross_validate
 from sklearn.exceptions import ConvergenceWarning
 with warnings.catch_warnings():
         warnings.simplefilter('ignore')
 warnings.simplefilter("ignore", category=ConvergenceWarning)
-
+from sklearn.model_selection import KFold
 import numpy as np
 import pandas as pd
 from datetime import datetime
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import confusion_matrix, classification_report
-from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from xgboost import XGBClassifier
 from sklearn.metrics import make_scorer
@@ -35,23 +35,19 @@ def model(eeg_features, feature_extraction_method):
     lvo = clinical_features['lvo']
     clinical_features = clinical_features.drop(['lvo'], axis=1)
 
-
     all_features = pd.concat([eeg_features, clinical_features], axis=1)
-
-    X_train, X_test, y_train, y_test = train_test_split(all_features, lvo, test_size=0.2, random_state=42)
-
 
     gp = GaussianProcessClassifier()
     # define grid
     params = dict()
     params['kernel'] = [1*RBF(), 1*DotProduct(), 1*Matern(),  1*RationalQuadratic(), 1*WhiteKernel(), 1.0 * ExpSineSquared()]
     custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
-    #custom_scorer = make_scorer(acc, greater_is_better=True)
 
-    # define search
+    # Internal CV
+    inner_cv = KFold(n_splits=5, shuffle=True, random_state=42)
     grid = GridSearchCV(gp, params, scoring=custom_scorer, cv=5, refit='ACC')
 
-    grid.fit(X_train, y_train)
+    grid.fit(all_features, lvo)
     print('\n All results:')
     print(grid.cv_results_)
     print('\n Best estimator:')
@@ -63,24 +59,15 @@ def model(eeg_features, feature_extraction_method):
     results = pd.DataFrame(grid.cv_results_)
     results.to_csv('./results/gp-grid-search.csv', index=False)
 
-    y_predict= grid.best_estimator_.predict(X_test)
-    y_predict_train = grid.best_estimator_.predict(X_train)
+    custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
-    print("Train Accuracy: {0}".format(accuracy_score(y_train, y_predict_train)))
-    print("Test Accuracy: {0}".format(accuracy_score(y_test, y_predict)))
-
-    print("\nCustom Evaluation:")
-
-    eval = evaluation_metric(y_test, y_predict)  
-    eval_train = evaluation_metric(y_train, y_predict_train)
-
-    print("Train Custom Evaluation Metric : {0}".format(eval_train))
-    print("Test Custom Evaluation Metric : {0}".format(eval))
-
-    test_probs = grid.predict_proba(X_test)[:,1]
-    print(test_probs)
-   
-
+    # External CV
+    outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    nested_score = cross_validate(grid, X=all_features, y=lvo, cv=outer_cv, scoring=custom_scorer)
+    
+    print(nested_score)
+    print(nested_score['test_ACC'].mean())
+    print(nested_score['test_Custom Evaluation'].mean())
 
 def normalize_data(eeg_features, feature_extraction_method):
     if feature_extraction_method == 'simple':
@@ -123,13 +110,20 @@ def evaluation_metric(y_true, y_pred):
 if __name__ == '__main__':
     
     eeg_features1 = pd.read_csv(r'data\feature_processed\simple_features.csv')
+    gyro_features = pd.read_csv(r'data\feature_processed\simple_gyro_features.csv')
+    acc_features = pd.read_csv(r'data\feature_processed\simple_acc_features.csv')
     eeg_features2 = pd.read_csv(r'data\feature_processed\features.csv')
 
     eeg_features1 = normalize_data(eeg_features1, 'simple')
-    eeg_features2 = normalize_data(eeg_features2, 'wavelet')
+    #eeg_features2 = normalize_data(eeg_features2, 'wavelet')
 
-    #model(eeg_features1, 'simple')
-    model(eeg_features2, 'wavelet')
+    gyro_features = normalize_data(gyro_features, 'simple')
+    acc_features = normalize_data(acc_features, 'simple')
+
+    all_eeg_features = pd.concat([eeg_features1, gyro_features, acc_features], axis=1)
+
+    model(all_eeg_features, 'simple')
+    #model(eeg_features2, 'wavelet')
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')

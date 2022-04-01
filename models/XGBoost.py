@@ -8,7 +8,7 @@ with warnings.catch_warnings():
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV, KFold, cross_validate
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
@@ -42,14 +42,13 @@ def model(eeg_features, feature_extraction_method):
 
     all_features = pd.concat([eeg_features, clinical_features], axis=1)
 
-    X_train, X_test, y_train, y_test = train_test_split(all_features, lvo, test_size=0.2, random_state=42)
 
     xgb = XGBClassifier(learning_rate=0.02, objective='binary:logistic', nthread=1, verbosity=0, silent=True)
 
     custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
     #custom_scorer = make_scorer(acc, greater_is_better=True)
     grid = GridSearchCV(estimator=xgb, param_grid=params, scoring=custom_scorer, cv=5, verbose=3, refit='ACC' )
-    grid.fit(X_train, y_train)
+    grid.fit(clinical_features, lvo)
     print('\n All results:')
     print(grid.cv_results_)
     print('\n Best estimator:')
@@ -61,41 +60,15 @@ def model(eeg_features, feature_extraction_method):
     results = pd.DataFrame(grid.cv_results_)
     results.to_csv('./results/xgb-grid-search.csv', index=False)
 
-    y_predict= grid.best_estimator_.predict(X_test)
-    y_predict_train = grid.best_estimator_.predict(X_train)
+    custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
-    print("Train Accuracy: {0}".format(accuracy_score(y_train, y_predict_train)))
-    print("Test Accuracy: {0}".format(accuracy_score(y_test, y_predict)))
-
-    print("\nCustom Evaluation:")
-
-    eval = evaluation_metric(y_test, y_predict)  
-    eval_train = evaluation_metric(y_train, y_predict_train)
-
-    print("Train Custom Evaluation Metric : {0}".format(eval_train))
-    print("Test Custom Evaluation Metric : {0}".format(eval))
-
-    test_probs = grid.predict_proba(X_test)[:,1]
-    print(test_probs)
-   
-
-    #submission = pd.DataFrame({"id": X_test["id"], "prediction": test_probs})
-    #submission.to_csv("xgboost_best_parameter_submission.csv", index=False)
-    #results_df = pd.DataFrame(data={'id':test_df['id'], 'target':y_test[:,1]})
-    #results_df.to_csv('submission-grid-search-xgb-porto-01.csv', index=False)
-    #feature_imp = grid.best_estimator_.feature_importance()
-    feature_imps = grid.best_estimator_.feature_importances_
-    indices = np.argsort(feature_imps)
-    feat_importances = pd.Series(feature_imps, index=X_train.columns)
-    plt.figure()
-    plt.title("Feature importances")
-    plt.barh(range(X_train.shape[1]), feature_imps[indices],
-       color="r", align="center")
-
-
-    plt.bar( range(len(feature_imps)), feature_imps)
-    plt.xticks(range(len(feature_imps)), X_train.columns)
-    plt.show()
+    # External CV
+    outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    nested_score = cross_validate(grid, X=clinical_features, y=lvo, cv=outer_cv, scoring=custom_scorer)
+    
+    print(nested_score)
+    print(nested_score['test_ACC'].mean())
+    print(nested_score['test_Custom Evaluation'].mean())
 
 
 def normalize_data(eeg_features, feature_extraction_method):
@@ -139,13 +112,20 @@ def evaluation_metric(y_true, y_pred):
 if __name__ == '__main__':
     
     eeg_features1 = pd.read_csv(r'data\feature_processed\simple_features.csv')
+    gyro_features = pd.read_csv(r'data\feature_processed\simple_gyro_features.csv')
+    acc_features = pd.read_csv(r'data\feature_processed\simple_acc_features.csv')
     eeg_features2 = pd.read_csv(r'data\feature_processed\features.csv')
 
     eeg_features1 = normalize_data(eeg_features1, 'simple')
-    eeg_features2 = normalize_data(eeg_features2, 'wavelet')
+    #eeg_features2 = normalize_data(eeg_features2, 'wavelet')
+
+    gyro_features = normalize_data(gyro_features, 'simple')
+    acc_features = normalize_data(acc_features, 'simple')
+
+    all_eeg_features = pd.concat([eeg_features1, gyro_features, acc_features], axis=1)
 
     #model(eeg_features1, 'simple')
-    model(eeg_features2, 'wavelet')
+    model(all_eeg_features ,'simple')
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
