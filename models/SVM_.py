@@ -1,61 +1,46 @@
-
-import os
+import warnings
+import matplotlib
+from sklearn.gaussian_process import GaussianProcessClassifier
+warnings.filterwarnings('ignore')
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.model_selection import cross_val_score, cross_validate
+from sklearn.exceptions import ConvergenceWarning
+with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+warnings.simplefilter("ignore", category=ConvergenceWarning)
+from sklearn.model_selection import KFold
+import numpy as np
 import pandas as pd
-import sklearn
+from datetime import datetime
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.model_selection import StratifiedKFold
+from xgboost import XGBClassifier
+from sklearn.metrics import make_scorer
+from sklearn.ensemble import VotingClassifier
 from sklearn.svm import SVC
 import joblib
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import zscore
 from sklearn.preprocessing import FunctionTransformer
-import shap
-from sklearn.metrics import make_scorer
-from sklearn.ensemble import VotingClassifier
-from sklearn.pipeline import Pipeline
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+from sklearn.gaussian_process.kernels import RBF, DotProduct, Matern, RationalQuadratic, WhiteKernel, ExpSineSquared
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import StackingClassifier
 
-# References : https://stackoverflow.com/questions/45074579/votingclassifier-different-feature-sets
+def model(eeg_features, feature_extraction_method):
 
-def fit_multiple_estimators(classifiers, X_list, y, sample_weights = None):
-    
-    # Convert the labels `y` using LabelEncoder, because the predict method is using index-based pointers
-    # which will be converted back to original data later.
-    le_ = LabelEncoder()
-    le_.fit(y)
-    transformed_y = le_.transform(y)
+    clinical_features = pd.read_csv(r'./data/df_onsite.csv')
+    lvo = clinical_features['lvo']
+    clinical_features = clinical_features.drop(['lvo'], axis=1)
 
-    # Fit all estimators with their respective feature arrays
-    estimators_ = [clf.fit(X, y) if sample_weights is None else clf.fit(X, y, sample_weights) for clf, X in zip([clf for _, clf in classifiers], X_list)]
+    all_features = pd.concat([eeg_features, clinical_features], axis=1)
 
-    return estimators_, le_
-
-
-def predict_from_multiple_estimator(estimators, label_encoder, X_list, weights = None):
-
-    # Predict 'soft' voting with probabilities
-
-    pred1 = np.asarray([clf.predict_proba(X) for clf, X in zip(estimators, X_list)])
-    pred2 = np.average(pred1, axis=0, weights=weights)
-    pred = np.argmax(pred2, axis=1)
-
-    # Convert integer predictions to original labels:
-    return label_encoder.inverse_transform(pred)
-
-
-def train_svm_eeg(X_train, X_test, y_train, y_test):
-    """
-    train_svm_classifer will train a SVM, saved the trained and SVM model and
-    report the classification performance
-    features: array of input features
-    labels: array of labels associated with the input features
-    model_output_path: path for storing the trained svm model
-    """
-    
-
-    param = [
+    # define grid
+    params = [
         {
             "kernel": ["linear"],
             "C": [0.1, 1, 10, 100]
@@ -81,133 +66,34 @@ def train_svm_eeg(X_train, X_test, y_train, y_test):
     ]
 
     # request probability estimation
-    svm = SVC(probability=True)
+    svm = SVC(probability=True, max_iter=100000)
+    custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
 
-    custom_scorer = {'ACC_': make_scorer(acc, greater_is_better=True), 'CustomEvaluation':make_scorer(evaluation_metric, greater_is_better=False)}
+    # Internal CV
+    inner_cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    grid = GridSearchCV(svm, params, scoring=custom_scorer, cv=5, refit='ACC')
 
-    #custom_scorer = make_scorer(acc, greater_is_better=True)
-    #custom_scorer = make_scorer(evaluation_metric, greater_is_better=False)
-    # 5-fold cross validation
-    clf = GridSearchCV(svm, param,
-            cv=5, verbose=3, scoring=custom_scorer, n_jobs=-1, refit='ACC_')
-
-    clf.fit(X_train, y_train)
-
-    print("\nBest parameters set:")
-    print(clf.best_params_)
-
-    y_predict= clf.best_estimator_.predict(X_test)
-    y_predict_train = clf.best_estimator_.predict(X_train)
-
+    grid.fit(all_features, lvo)
     print('\n All results:')
-    print(clf.cv_results_)
+    print(grid.cv_results_)
     print('\n Best estimator:')
-    print(clf.best_estimator_)
+    print(grid.best_estimator_)
     print('\n Best score:')
-    print(clf.best_score_ * 2 - 1)
+    print(grid.best_score_ * 2 - 1)
     print('\n Best parameters:')
-    print(clf.best_params_)
+    print(grid.best_params_)
+    results = pd.DataFrame(grid.cv_results_)
+    results.to_csv('./results/svm-grid-search.csv', index=False)
 
-    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, y_predict_train)))
-    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, y_predict)))
+    custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
-    print("\nLoss Metric:")
-
-    eval = evaluation_metric(y_test, y_predict)  
-    eval_train = evaluation_metric(y_train, y_predict_train)
-
-    print("Train Custom Evaluation : {0}".format(eval_train))
-    print("Test Custom Evaluation : {0}".format(eval))
-
-    print("\nClassification report:")
-    print(classification_report(y_test, y_predict))
-
-    model = clf
-
-    return model
-
-def train_svm_clinical(X_train, X_test, y_train, y_test):
-
-    linear_svc = SVC(kernel='linear', C=1.0, probability=True).fit(X_train, y_train)
-    rbf_svc = SVC(kernel='rbf', C=1.0, probability=True).fit(X_train, y_train)
-    poly_svc = SVC(kernel='poly', C=1.0, probability=True).fit(X_train, y_train)
-    sigmoid_svc = SVC(kernel='sigmoid', C=1.0, probability=True).fit(X_train, y_train)
-
-    linear_svc_pred = linear_svc.predict(X_test)
-    rbf_svc_pred = rbf_svc.predict(X_test)
-    poly_svc_pred = poly_svc.predict(X_test)
-    sigmoid_svc_pred = sigmoid_svc.predict(X_test)
-
-    linear_svc_eval = evaluation_metric(y_test, linear_svc_pred)
-    rbf_svc_eval = evaluation_metric(y_test, rbf_svc_pred)
-    poly_svc_eval = evaluation_metric(y_test, poly_svc_pred)
-    sigmoid_svc_eval = evaluation_metric(y_test, sigmoid_svc_pred)
-
-    linear_svc_F1  = sklearn.metrics.accuracy_score(y_test,linear_svc_pred )
-    rbf_svc_F1  = sklearn.metrics.accuracy_score(y_test,rbf_svc_pred )
-    poly_svc_F1 = sklearn.metrics.accuracy_score(y_test,poly_svc_pred)
-    sigmoid_svc_F1  = sklearn.metrics.accuracy_score(y_test,sigmoid_svc_pred )
-
-    model = linear_svc   # has the highest accuracy and lowest loss
-
-    print("\nLinear SVM:")
-    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, linear_svc.predict(X_train))))
-    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, linear_svc.predict(X_test))))
-    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, linear_svc.predict(X_train))))
-    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, linear_svc.predict(X_test))))
-
-    print("\nRBF SVM:")
-    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, rbf_svc.predict(X_train))))
-    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, rbf_svc.predict(X_test))))
-    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, rbf_svc.predict(X_train))))
-    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, rbf_svc.predict(X_test))))
-
-
-    print("\nPoly SVM:")
-    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, poly_svc.predict(X_train))))
-    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, poly_svc.predict(X_test))))
-    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, poly_svc.predict(X_train))))
-    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, poly_svc.predict(X_test))))
-
-    print("\nSigmoid SVM:")
-    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, sigmoid_svc.predict(X_train))))
-    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, sigmoid_svc.predict(X_test))))
-    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, sigmoid_svc.predict(X_train))))
-    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, sigmoid_svc.predict(X_test))))
-
-
-    return model
-
-def combine(svm1, svm2, X_train, y_train, X_test, y_test):
-
-    ensemble=VotingClassifier(estimators=[('SVM', svm1), ('SVM2', svm2)], 
-                       voting='soft', weights=[1,1]).fit(X_train,y_train)
-    print('The accuracy for combination is :',ensemble.score(X_test, y_test))
+    # External CV
+    outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    nested_score = cross_validate(grid, X=all_features, y=lvo, cv=outer_cv, scoring=custom_scorer)
     
-
-def svm_clinical():
-    df = pd.read_csv('./data/df_onsite.csv')
-    lvo = df['lvo']
-    features = df.drop(['lvo'], axis=1)
-    
-    X_train, X_test, y_train, y_test = train_test_split(features, lvo, test_size=0.2, random_state=42)
-
-    model = train_svm_clinical(X_train, X_test, y_train, y_test)
-    return model
-
-def svm_eeg(eeg_features):
-    # Load the datasets
-
-    clinical_features = pd.read_csv('./data/df_onsite.csv')
-    lvo = clinical_features['lvo']
-    clinical_features = clinical_features.drop(['lvo'], axis=1)
-
-    X_train, X_test, y_train, y_test = train_test_split(eeg_features, lvo, test_size=0.2, random_state=42)
-
-    model = train_svm_eeg(X_train, X_test, y_train, y_test)
-    
-    return model
-
+    print(nested_score)
+    print(nested_score['test_ACC'].mean())
+    print(nested_score['test_Custom Evaluation'].mean())
 
 def normalize_data(eeg_features, feature_extraction_method):
     if feature_extraction_method == 'simple':
@@ -231,48 +117,31 @@ def normalize_data(eeg_features, feature_extraction_method):
 
     return eeg_features
 
-def combine_eeg_clinical_models(eeg_features, feature_extraction_method):
-    # Load the datasets
-    clinical_features = pd.read_csv('./data/df_onsite.csv')
-    lvo = clinical_features['lvo']
-    clinical_features = clinical_features.drop(['lvo'], axis=1)
 
-    # Combine eeg and clinical features
-    all_features = pd.concat([eeg_features, clinical_features], axis=1)
+def acc(y_true, y_pred):
+    return accuracy_score(y_true, y_pred)
 
-    X_train, X_test, y_train, y_test = train_test_split(all_features, lvo, test_size=0.2, random_state=42)
+# get a stacking ensemble of models
+def get_stacking():
+	# define the base models
+	level0 = list()
+	level0.append(('lr', SVC(probability=True, C= 1, kernel = 'linear', max_iter=10000)))
+	#level0.append(('cart', RandomForestClassifier()))
+	level0.append(('svm', SVC(probability=True, C= 0.1, degree = 2, kernel = 'poly', max_iter=10000)))
+	#level0.append(('bayes', GaussianProcessClassifier()))
+	# define meta learner model
+	level1 = SVC()
+	# define the stacking ensemble
+	model = StackingClassifier(estimators=level0, final_estimator=level1, cv=5, n_jobs=-1)
+	return model
 
-    # Split eeg and clinical training and testing sets for different models
-    X_train_eeg = X_train[X_train.columns[0:8]]
-    X_train_clinical = X_train[X_train.columns[8:]]
-    X_test_eeg = X_test[X_test.columns[0:8]]
-    X_test_clinical = X_test[X_test.columns[8:]]
+def evaluate_model(model, X, y):
+    custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
-    X_train_list = [X_train_eeg, X_train_clinical]
-    X_test_list = [X_test_eeg, X_test_clinical]
-    
-    # The models
-    if feature_extraction_method == 'simple':
-        classifiers = [('svc1', SVC(kernel='poly', C=0.1, degree=2, probability=True)),
-        ('svc2', SVC(kernel="linear", C=1, probability=True))]
-
-    elif feature_extraction_method == 'wavelet':
-        classifiers = [('svc1', SVC(C= 0.1, kernel= 'sigmoid', probability=True)),
-        ('svc2', SVC(kernel="linear", C=1, probability=True))]
-
-    fitted_estimators, label_encoder = fit_multiple_estimators(classifiers, X_train_list, y_train)
-
-    y_pred = predict_from_multiple_estimator(fitted_estimators, label_encoder, X_test_list)
-    y_pred_train = predict_from_multiple_estimator(fitted_estimators, label_encoder, X_train_list)
-
-    print("Train Accuracy and Custom Evaluation:")
-    print(accuracy_score(y_train, y_pred_train))
-    print(evaluation_metric(y_train, y_pred_train))
-
-    print("Test Accuracy and Custom Evaluation:")
-    print(accuracy_score(y_test, y_pred))
-    print(evaluation_metric(y_test, y_pred))
-
+    # External CV
+    outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    nested_score = cross_validate(model, X=X, y=y ,cv=outer_cv, scoring=custom_scorer)
+    return nested_score
 
 def evaluation_metric(y_true, y_pred):
     CM = confusion_matrix(y_true, y_pred)
@@ -284,26 +153,47 @@ def evaluation_metric(y_true, y_pred):
     expected_loss = (4*FN+FP)/(4*(TP+FP)+(TN+FN))
     return expected_loss
 
-def acc(y_true, y_pred):
-    return sklearn.metrics.accuracy_score(y_true, y_pred)
 
- 
 if __name__ == '__main__':
     
-    # Run these models to find best hyperparameters for EEG and to get results for both eeg and clincal seperately
-
     eeg_features1 = pd.read_csv(r'data\feature_processed\simple_features.csv')
+    gyro_features = pd.read_csv(r'data\feature_processed\simple_gyro_features.csv')
+    acc_features = pd.read_csv(r'data\feature_processed\simple_acc_features.csv')
     eeg_features2 = pd.read_csv(r'data\feature_processed\features.csv')
 
     eeg_features1 = normalize_data(eeg_features1, 'simple')
-    eeg_features2 = normalize_data(eeg_features2, 'wavelet')
-    #eeg_model = svm_eeg(eeg_features1, 'simple')
-    eeg_model = svm_eeg(eeg_features2)
-    #clinical_model = svm_clinical()
+    #eeg_features2 = normalize_data(eeg_features2, 'wavelet')
 
-    # Combine best SVM models for EEG and Clinical data
-    #combine_eeg_clinical_models(eeg_features1, 'simple')
-    combine_eeg_clinical_models(eeg_features2, 'wavelet')
+    gyro_features = normalize_data(gyro_features, 'simple')
+    acc_features = normalize_data(acc_features, 'simple')
 
-    
-    
+    all_eeg_features = pd.concat([eeg_features1, gyro_features, acc_features], axis=1)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+
+    clinical_features = pd.read_csv(r'./data/df_onsite.csv')
+    lvo = clinical_features['lvo']
+    clinical_features = clinical_features.drop(['lvo'], axis=1)
+
+    all_features = pd.concat([all_eeg_features, clinical_features], axis=1)
+
+    # Best approach was combining the data
+
+    model(eeg_features1,"simple")
+
+    # 1 approach is voting classifier
+    # model1 = SVC(probability=True, C= 0.1, degree = 2, kernel = 'poly')
+    # model2 = SVC(probability=True, C= 1, kernel = 'linear')
+    # model = VotingClassifier(estimators=[('lr', model1), ('dt', model2)], voting='hard')
+    # model.fit(X_train,y_train)
+    # score = model.score(X_test,y_test)
+    # print(score)
+
+    # Another approach is stacking 
+    # get_stacking().fit(X_train, y_train)
+    # scores = evaluate_model(get_stacking(), all_features ,lvo)
+    # acc = scores['test_ACC'].mean()
+    # loss = scores['test_Custom Evaluation'].mean()
+    # print('Accuracy: ', acc)
+    # print('Loss: ', loss)
