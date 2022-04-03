@@ -46,19 +46,10 @@ def model(eeg_features, feature_extraction_method):
     xgb = XGBClassifier(learning_rate=0.02, objective='binary:logistic', nthread=1, verbosity=0, silent=True)
 
     custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
-    #custom_scorer = make_scorer(acc, greater_is_better=True)
-    grid = GridSearchCV(estimator=xgb, param_grid=params, scoring=custom_scorer, cv=5, verbose=3, refit='ACC' )
-    grid.fit(clinical_features, lvo)
-    print('\n All results:')
-    print(grid.cv_results_)
-    print('\n Best estimator:')
-    print(grid.best_estimator_)
-    print('\n Best score:')
-    print(grid.best_score_ * 2 - 1)
-    print('\n Best parameters:')
-    print(grid.best_params_)
-    results = pd.DataFrame(grid.cv_results_)
-    results.to_csv('./results/xgb-grid-search.csv', index=False)
+
+    # Internal CV
+    inner_cv = KFold(n_splits=3, shuffle=True, random_state=42)
+    grid = GridSearchCV(estimator=xgb, param_grid=params, scoring=custom_scorer, cv=inner_cv, verbose=3, refit='ACC' )
 
     custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
@@ -125,7 +116,7 @@ if __name__ == '__main__':
     all_eeg_features = pd.concat([eeg_features1, gyro_features, acc_features], axis=1)
 
     #model(eeg_features1, 'simple')
-    model(all_eeg_features ,'simple')
+    model(eeg_features1 ,'simple')
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')

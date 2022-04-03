@@ -70,26 +70,15 @@ def model(eeg_features, feature_extraction_method):
     custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
 
     # Internal CV
-    inner_cv = KFold(n_splits=5, shuffle=True, random_state=42)
-    grid = GridSearchCV(svm, params, scoring=custom_scorer, cv=5, refit='ACC')
+    inner_cv = KFold(n_splits=3, shuffle=True, random_state=42)
+    grid = GridSearchCV(svm, params, scoring=custom_scorer, cv=inner_cv, refit='ACC')
 
-    grid.fit(all_features, lvo)
-    print('\n All results:')
-    print(grid.cv_results_)
-    print('\n Best estimator:')
-    print(grid.best_estimator_)
-    print('\n Best score:')
-    print(grid.best_score_ * 2 - 1)
-    print('\n Best parameters:')
-    print(grid.best_params_)
-    results = pd.DataFrame(grid.cv_results_)
-    results.to_csv('./results/svm-grid-search.csv', index=False)
 
     custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
     # External CV
     outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
-    nested_score = cross_validate(grid, X=all_features, y=lvo, cv=outer_cv, scoring=custom_scorer)
+    nested_score = cross_validate(grid, X=clinical_features, y=lvo, cv=outer_cv, scoring=custom_scorer)
     
     print(nested_score)
     print(nested_score['test_ACC'].mean())
