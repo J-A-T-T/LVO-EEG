@@ -44,20 +44,8 @@ def model(eeg_features, feature_extraction_method):
     custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
 
     # Internal CV
-    inner_cv = KFold(n_splits=5, shuffle=True, random_state=42)
-    grid = GridSearchCV(gp, params, scoring=custom_scorer, cv=5, refit='ACC')
-
-    grid.fit(all_features, lvo)
-    print('\n All results:')
-    print(grid.cv_results_)
-    print('\n Best estimator:')
-    print(grid.best_estimator_)
-    print('\n Best score:')
-    print(grid.best_score_ * 2 - 1)
-    print('\n Best parameters:')
-    print(grid.best_params_)
-    results = pd.DataFrame(grid.cv_results_)
-    results.to_csv('./results/gp-grid-search.csv', index=False)
+    inner_cv = KFold(n_splits=3, shuffle=True, random_state=42)
+    grid = GridSearchCV(gp, params, scoring=custom_scorer, cv=inner_cv, refit='ACC')
 
     custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
@@ -122,7 +110,7 @@ if __name__ == '__main__':
 
     all_eeg_features = pd.concat([eeg_features1, gyro_features, acc_features], axis=1)
 
-    model(all_eeg_features, 'simple')
+    model(eeg_features1, 'simple')
     #model(eeg_features2, 'wavelet')
 
     with warnings.catch_warnings():
