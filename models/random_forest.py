@@ -8,6 +8,18 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import RandomizedSearchCV
 
 
+
+def train_rf_everything(X_train, X_test, y_train, y_test):
+    rf = RandomForestClassifier(n_estimators= 1555, min_samples_split =2, min_samples_leaf= 1, max_features= 'auto', max_depth= 1, bootstrap= True).fit(X_train, y_train)
+    
+    print("\nRandom Forest:")
+    print("Train Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_train, rf.predict(X_train))))
+    print("Test Accuracy: {0}".format(sklearn.metrics.accuracy_score(y_test, rf.predict(X_test))))
+    print("Train Custom Evaluation Metric: {0}".format(evaluation_metric(y_train, rf.predict(X_train))))
+    print("Test Custom Evaluation Metric: {0}".format(evaluation_metric(y_test, rf.predict(X_test))))
+
+    return rf
+
 def train_rf_clinical_and_eeg(X_train, X_test, y_train, y_test):
     rf = RandomForestClassifier(n_estimators= 1, min_samples_split =2, min_samples_leaf= 4, max_features= 'auto', max_depth= 1, bootstrap= True).fit(X_train, y_train)
 
@@ -75,6 +87,34 @@ def rf_clinical_and_eeg():
     return model
 
 
+def rf_everything():
+    df = pd.read_csv(r"..\data\df_onsite.csv")
+    df['onset_d_t'] = pd.to_datetime(df['onset_d_t'])
+    df['eeg_d_t'] = pd.to_datetime(df['eeg_d_t'])
+    df['time_elapsed'] = df['eeg_d_t'] - df['onset_d_t']
+    df['time_elapsed'] = pd.to_timedelta(df['time_elapsed'])
+    df['time_elapsed'] = df['time_elapsed'].dt.total_seconds().div(60).astype(int)
+    onsite_features = ['age', 'gender', 'lams', 'lvo','time_elapsed']
+    df = df[onsite_features]
+    lvo = df['lvo']
+    clinical_features = df.drop(['lvo'], axis=1)
+    eeg_features = pd.read_csv(r'..\data\feature_processed\simple_features.csv')
+    acc_features = pd.read_csv(r'..\data\feature_processed\simple_acc_features.csv')
+    gyro_features = pd.read_csv(r'..\data\feature_processed\simple_gyro_features.csv')
+    all_features = pd.concat([eeg_features, clinical_features, acc_features, gyro_features], axis=1)
+    print(all_features[all_features.isna().any(axis=1)])
+    all_features.fillna(0, inplace=True)
+    X_train, X_test, y_train, y_test = train_test_split(all_features, lvo, test_size=0.2, random_state=42)
+    X_train = X_train.fillna(0)
+    X_test = X_test.fillna(0)
+    # print(y_test)
+    # print(y_train)
+    model = train_rf_everything(X_train, X_test, y_train, y_test)
+    if run_HyperParameterTuning_everything:
+        x = randomHyperParameterTuning(X_train, y_train)
+        print(x)
+    return model
+
 def model(X_train, y_train):
     rand_attempt1 = RandomForestClassifier(n_estimators= 1, min_samples_split =2, min_samples_leaf= 4, max_features= 'auto', max_depth= 1, bootstrap= True).fit(X_train, y_train)
     return rand_attempt1
@@ -126,10 +166,14 @@ if __name__ == '__main__':
     run_HyperParameterTuning_eeg = False
     if input("Run HyperParameterTuning_eeg? (y/n)") == 'y':
         run_HyperParameterTuning_eeg = True
+    run_HyperParameterTuning_everything = False
+    if input("Run HyperParameterTuning_everything? (y/n)") == 'y':
+        run_HyperParameterTuning_everything = True
     
     
     clinical_model = rf_clinical()
     clinical_eeg_model = rf_clinical_and_eeg()
+    everything_model = rf_everything()
 
     if run_HyperParameterTuning:
         print("coolies")
