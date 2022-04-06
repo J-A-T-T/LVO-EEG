@@ -25,7 +25,8 @@ from pytorch_grad_cam import GradCAM
 from sklearn.metrics import confusion_matrix
 
 
-from models.eegnet import EEGNet
+# from models.eegnet import EEGNet
+from models.eegnetGyroACC import EEGNet
 
 def main(lr, epochs, batch_size):
 
@@ -39,7 +40,7 @@ def main(lr, epochs, batch_size):
     # Load the label 
     df = pd.read_csv('./data/df_onsite.csv')
     lvo = df['lvo'].to_numpy()
-    # lvo = np.delete(lvo, 87)
+    # lvo = np.delete(lvo, 108)
     lvo = np.float32(lvo)
     
     # Load the preprocessed eeg data
@@ -223,13 +224,13 @@ def main(lr, epochs, batch_size):
 
 
     # Plot the original EEG 
-    example = torch.squeeze(next(iter(testloader))[0][1]).cpu().detach().numpy()
+    # example = torch.squeeze(next(iter(testloader))[0][1]).cpu().detach().numpy()
     # example = next(iter(testloader))[0]
     # print(example.size())
     # print(example.shape)
     # exit()
-    plot_eeg(example)
-    plt.show()
+    # plot_eeg(example)
+    # plt.show()
 
     # target_layers = [net.fc1]
     # cam = GradCAM(model=net,

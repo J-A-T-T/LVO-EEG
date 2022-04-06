@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 from utils.plot_eeg import plot_eeg
 import cv2
 
-example = np.random.rand(1,1,5000,4) 
+example = np.load('./data/processed_eeg.npy')
+example = example[0]
+example = example.reshape(1,1,example.shape[0], example.shape[1])
 example = torch.FloatTensor(example)
 
 model = EEGNet(output = 1)
@@ -39,12 +41,14 @@ plt.matshow(heatmap.squeeze())
 heatmap = heatmap.numpy() # 2 x 312
 
 example = torch.squeeze(example).cpu().detach().numpy()
-
-heatmap = cv2.resize(heatmap, (example.shape[1], example.shape[0]))
+plot_eeg(example)
+img = cv2.imread('eeg.png')
+heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
 heatmap = np.uint8(255 * heatmap)
-superimposed_img = heatmap * 0.4 + example
-# heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-plot_eeg(heatmap)
-# plot_eeg(example)
+heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+superimposed_img = heatmap * 0.4 + img
+cv2.imwrite('./example.jpg', superimposed_img)
+# plot_eeg(heatmap)
+
 # plot_eeg(superimposed_img)
-plt.show()
+# plt.show()

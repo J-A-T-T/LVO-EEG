@@ -51,7 +51,10 @@ def main(lr, num_epoch, batch_size):
     label = df['lvo']
 
     label = label.to_numpy()
+    label = np.delete(label, 108)
     clinical = clinical.to_numpy()
+    clinical = np.delete(clinical, 108,0)
+
 
     # clinical = np.delete(clinical, 87,0)
     # label = np.delete(label, 87)
@@ -293,7 +296,7 @@ def evaluation_metric(CM):
     FN = CM[1][0]
     TP = CM[1][1]
 
-    expected_loss = (4*FN+FP)/(4*(TP+FP)+TN+FN)
+    expected_loss = (4*FN+FP)/(4*(TP+FN)+TN+FP)
     return expected_loss
 
 if __name__ == "__main__":
