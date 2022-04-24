@@ -1,7 +1,7 @@
 # LVO-EEG
 A predictor for LVO non LVO
 
-* Data https://drive.google.com/drive/folders/1LKz-tQevrR41TiMITG9h7yl7EUoblI16?usp=sharing
+* Data: Upon request to Dr Kyle and Dr Brian
 
 * Result https://docs.google.com/spreadsheets/d/1xypKoyjERM7am8Do1qPqB_lr5vn0G-QxFHnlWegXSWY/edit#gid=0
 
