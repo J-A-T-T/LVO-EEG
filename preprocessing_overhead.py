@@ -5,7 +5,7 @@ from sklearn import preprocessing
 
 from preprocessing import Preprocessing as pp
 # assign directory where the data files are stored
-directory = r'C:\Users\tanya\OneDrive\Documents\GitHub\LVO-EEG\data\115'
+directory = r'./data/115'
 
 
 # create a Preprocessing object
