@@ -40,6 +40,10 @@ pip install -r requirements.txt
 5. train_eegnet.py: Train a EEGNet on EEG data only
 6. train_lstm.py: Train a LSTM on EEG data only
 
+# How to train ML models
+1. In the root directory run python models/SVM_.py or python models/GP.py or python python models/RF_.py or python models/XGBoost.py  
+2. Select the option for the prepreocessed EEG data you want to use
+
 # Results
 Please take a look at the table [here](https://docs.google.com/spreadsheets/d/1xypKoyjERM7am8Do1qPqB_lr5vn0G-QxFHnlWegXSWY/edit#gid=0) 
 
