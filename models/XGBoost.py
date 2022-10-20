@@ -49,17 +49,16 @@ def model(eeg_features, feature_extraction_method):
 
     # Internal CV
     inner_cv = KFold(n_splits=3, shuffle=True, random_state=42)
-    grid = GridSearchCV(estimator=xgb, param_grid=params, scoring=custom_scorer, cv=inner_cv, verbose=3, refit='ACC' )
+    grid = GridSearchCV(xgb, params, scoring='accuracy', cv=inner_cv)
 
-    custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
+    #custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
     # External CV
     outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
-    nested_score = cross_validate(grid, X=clinical_features, y=lvo, cv=outer_cv, scoring=custom_scorer)
+    nested_score = cross_validate(grid, X=all_features, y=lvo, cv=outer_cv, scoring="accuracy")
     
     print(nested_score)
-    print(nested_score['test_ACC'].mean())
-    print(nested_score['test_Custom Evaluation'].mean())
+    print(nested_score['test_score'].mean())
 
 
 def normalize_data(eeg_features, feature_extraction_method):
@@ -107,16 +106,27 @@ if __name__ == '__main__':
     acc_features = pd.read_csv(r'data\feature_processed\simple_acc_features.csv')
     eeg_features2 = pd.read_csv(r'data\feature_processed\features.csv')
 
-    eeg_features1 = normalize_data(eeg_features1, 'simple')
-    #eeg_features2 = normalize_data(eeg_features2, 'wavelet')
+    x = input("""Please select the option for the preprocessed the EEG data:
+    1. Simple Feature Exatraction
+    2. Wavelet Feature Extraction \n
+    """)
+
+    if int(x) == 1:
+        eeg_features = normalize_data(eeg_features1, 'simple')
+    elif int(x) == 2:
+        eeg_features = normalize_data(eeg_features2, 'wavelet')
+    else:
+        x = input("Please enter 1 or 2")
 
     gyro_features = normalize_data(gyro_features, 'simple')
     acc_features = normalize_data(acc_features, 'simple')
 
-    all_eeg_features = pd.concat([eeg_features1, gyro_features, acc_features], axis=1)
+    all_eeg_features = pd.concat([eeg_features, gyro_features, acc_features], axis=1)
 
-    #model(eeg_features1, 'simple')
-    model(eeg_features1 ,'simple')
+    if int(x) == 1:
+        model(eeg_features, 'simple')
+    elif int(x) == 2:
+        model(eeg_features, 'wavelet')
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')

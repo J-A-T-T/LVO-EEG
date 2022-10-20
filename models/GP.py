@@ -1,7 +1,7 @@
 import warnings
 import matplotlib
 warnings.filterwarnings('ignore')
-
+import sklearn
 from sklearn.model_selection import cross_val_score, cross_validate
 from sklearn.exceptions import ConvergenceWarning
 with warnings.catch_warnings():
@@ -41,21 +41,20 @@ def model(eeg_features, feature_extraction_method):
     # define grid
     params = dict()
     params['kernel'] = [1*RBF(), 1*DotProduct(), 1*Matern(),  1*RationalQuadratic(), 1*WhiteKernel(), 1.0 * ExpSineSquared()]
-    custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
+    #custom_scorer = {'ACC': make_scorer(acc, greater_is_better=True), 'Custom Evaluation':make_scorer(evaluation_metric, greater_is_better=False)}
 
     # Internal CV
     inner_cv = KFold(n_splits=3, shuffle=True, random_state=42)
-    grid = GridSearchCV(gp, params, scoring=custom_scorer, cv=inner_cv, refit='ACC')
+    grid = GridSearchCV(gp, params, scoring='accuracy', cv=inner_cv)
 
-    custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
+    #custom_scorer = {'ACC': make_scorer(acc), 'Custom Evaluation':make_scorer(evaluation_metric)}
 
     # External CV
     outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
-    nested_score = cross_validate(grid, X=all_features, y=lvo, cv=outer_cv, scoring=custom_scorer)
+    nested_score = cross_validate(grid, X=all_features, y=lvo, cv=outer_cv, scoring="accuracy")
     
     print(nested_score)
-    print(nested_score['test_ACC'].mean())
-    print(nested_score['test_Custom Evaluation'].mean())
+    print(nested_score['test_score'].mean())
 
 def normalize_data(eeg_features, feature_extraction_method):
     if feature_extraction_method == 'simple':
@@ -78,10 +77,6 @@ def normalize_data(eeg_features, feature_extraction_method):
         eeg_features = pd.DataFrame(eeg_features_, columns = eeg_features.columns)
 
     return eeg_features
-
-
-def acc(y_true, y_pred):
-    return accuracy_score(y_true, y_pred)
     
 
 def evaluation_metric(y_true, y_pred):
@@ -102,16 +97,27 @@ if __name__ == '__main__':
     acc_features = pd.read_csv(r'data\feature_processed\simple_acc_features.csv')
     eeg_features2 = pd.read_csv(r'data\feature_processed\features.csv')
 
-    eeg_features1 = normalize_data(eeg_features1, 'simple')
-    #eeg_features2 = normalize_data(eeg_features2, 'wavelet')
+    x = input("""Please select the option for the preprocessed the EEG data:
+    1. Simple Feature Exatraction
+    2. Wavelet Feature Extraction \n
+    """)
+
+    if int(x) == 1:
+        eeg_features = normalize_data(eeg_features1, 'simple')
+    elif int(x) == 2:
+        eeg_features = normalize_data(eeg_features2, 'wavelet')
+    else:
+        x = input("Please enter 1 or 2")
 
     gyro_features = normalize_data(gyro_features, 'simple')
     acc_features = normalize_data(acc_features, 'simple')
 
-    all_eeg_features = pd.concat([eeg_features1, gyro_features, acc_features], axis=1)
+    all_eeg_features = pd.concat([eeg_features, gyro_features, acc_features], axis=1)
 
-    model(eeg_features1, 'simple')
-    #model(eeg_features2, 'wavelet')
+    if int(x) == 1:
+        model(eeg_features, 'simple')
+    elif int(x) == 2:
+        model(eeg_features, 'wavelet')
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
