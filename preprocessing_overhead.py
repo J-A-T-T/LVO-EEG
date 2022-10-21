@@ -1,7 +1,7 @@
 # import required module
 import os
 
-from sklearn import preprocessing
+# from sklearn import preprocessing
 
 from preprocessing import Preprocessing as pp
 # assign directory where the data files are stored
@@ -19,6 +19,8 @@ if x == 1:
     preprocessing = pp()
     preprocessing.createSimpleExtractionCSVEEG(directory)
 elif x == 2:
+    preprocessing = pp()
+    preprocessing.createSimpleExtractionCSVEEG(directory)
     for filename in os.listdir(directory):
         f = os.path.join(directory, filename)
         # checking if it is a file

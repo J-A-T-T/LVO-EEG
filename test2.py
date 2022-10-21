@@ -2,10 +2,17 @@ import numpy as np
 import torch
 from models.eegnet1 import EEGNet
 import matplotlib.pyplot as plt
-from utils.plot_eeg import plot_eeg
+from utils.plot_eeg import plot_eeg, plot_temp
 import cv2
 
-example = np.random.rand(1,1,5000,4) 
+# example = np.random.rand(1,1,5000,4) 
+# example = torch.FloatTensor(example)
+
+eeg = np.load('./data/processed_eeg.npy')
+example = eeg[0]
+print(example.shape)
+example = example.reshape(1, 1, example.shape[0], example.shape[1])
+
 example = torch.FloatTensor(example)
 
 model = EEGNet(output = 1)
@@ -38,13 +45,22 @@ plt.matshow(heatmap.squeeze())
 
 heatmap = heatmap.numpy() # 2 x 312
 
+# example.resize((50000, 40))
+
+# Area of interest -------------------------------------------------------------
+plot_temp()
 example = torch.squeeze(example).cpu().detach().numpy()
 
-heatmap = cv2.resize(heatmap, (example.shape[1], example.shape[0]))
+img = cv2.imread('./data/eeg_chosen_channel.png')
+# img.resize((5000, 4))
+heatmap = cv2.resize(heatmap, (img.shape[0], img.shape[1]))
 heatmap = np.uint8(255 * heatmap)
-superimposed_img = heatmap * 0.4 + example
-# heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-plot_eeg(heatmap)
-# plot_eeg(example)
-# plot_eeg(superimposed_img)
-plt.show()
+
+
+
+# superimposed_img = heatmap * 0.4 + example
+heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+superimposed_img = heatmap * 0.4 + img
+cv2.imwrite('./map.jpg', superimposed_img)
+
+# plt.show()

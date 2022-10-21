@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 
-path = '../data/ecg_clean/'
+path = '../data/feature_processing/'
 name = '_EEG_baseline_stroke_study_updated.csv'
 store = None
 count = 0
@@ -19,7 +19,7 @@ for i in range(1,116):
         else:
             eeg = pd.read_csv(path+str(i)+name).to_numpy()
     
-        eeg = eeg[:length,1:]
+        eeg = eeg[:length,:]
         eeg = eeg.reshape(1, eeg.shape[0], eeg.shape[1])
 
         if i == 1:

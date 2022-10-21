@@ -134,7 +134,8 @@ def evaluation_metric(y_true, y_pred):
     FN = CM[1][0]
     TP = CM[1][1]
 
-    expected_loss = (4*FN+FP)/(4*(TP+FP)+(TN+FN))
+
+    expected_loss = (4*FN+FP)/(4*(TP+FN)+(FP+TN))
     return expected_loss
 
 
@@ -163,7 +164,7 @@ if __name__ == '__main__':
 
     # Best approach was combining the data
 
-    model(eeg_features1,"simple")
+    model(eeg_features2,"simple")
 
     # 1 approach is voting classifier
     # model1 = SVC(probability=True, C= 0.1, degree = 2, kernel = 'poly')

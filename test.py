@@ -119,11 +119,12 @@ plt.matshow(heatmap.squeeze())
 heatmap = heatmap.numpy()
 
 plt.show()
-img = cv2.imread('./data2/Elephant/1.jpg')
+img = cv2.imread('./data2/Elephant/1.jpg',0)
 heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
 heatmap = np.uint8(255 * heatmap)
-heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+# heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 superimposed_img = heatmap * 0.4 + img
+superimposed_img = cv2.resize(superimposed_img, (5000, 400))
 cv2.imwrite('./map.jpg', superimposed_img)
 
 plt.show()

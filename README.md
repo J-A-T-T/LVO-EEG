@@ -31,13 +31,29 @@ pip install:
 
 * Create another folder called "ecg_clean" in the data folder (./data/ecg_clean)
 
-* Provide the path to the ./data/115 folder as the variable directory in preprocessing overhead.py
+* Create another folder called "feature_processing" in the data folder (./data/feature_processing)
+
+* And a final folder called "feature_processed" ( I know yes another one :( )
+
+* Dw, they wont take that much space :)
+
+* Provide the path to the ./data/115 folder as the variable directory in preprocessing_overhead.py
 
 * Run "py preprocessing_overhead.py"
 
+## If it's your first time
+
+* run option 2 first
+
 * Wait a minute or so
 
-* data should be in ecg clean
+* HFD data be in feature_processed and your clean data in feature processing
+
+* run option 4 (acc and gyro should be clean too)
+
+* run option 3 if you want to get your fractal for acc and gyro, edit the code to not overwrite your eeg fractal, or rename the fractal
+
+
 
 # References:
 https://github.com/jordan-bird/eeg-feature-generation
