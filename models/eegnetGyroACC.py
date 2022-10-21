@@ -13,7 +13,7 @@ class EEGNet(nn.Module):
         
         # Layer 2
         self.padding1 = nn.ZeroPad2d((16, 17, 0, 1))
-        self.conv2 = nn.Conv2d(1, 4, (2, 32))
+        self.conv2 = nn.Conv2d(7, 4, (2, 32))
         self.batchnorm2 = nn.BatchNorm2d(4, False)
         self.pooling2 = nn.MaxPool2d(2, 4)
         
@@ -26,8 +26,8 @@ class EEGNet(nn.Module):
         # FC Layer
         # NOTE: This dimension will depend on the number of timestamps per sample in your data.
         # I have 120 timepoints. 
-        # self.fc1 = nn.Linear(4* 2* 175, output)
-        self.fc1 = nn.Linear(4* 2* 312, output)
+        self.fc1 = nn.Linear(4* 2* 175, output)
+        # self.fc1 = nn.Linear(4* 2* 312, output)
         # self.fc1 = nn.Linear(4* 2* 2231, output)
         # self.fc1 = nn.Linear(4* 2* 625, output)
 
@@ -65,8 +65,8 @@ class EEGNet(nn.Module):
         
         # FC Layer
 
-        # x = x.reshape(-1, 4 * 2 *175) 
-        x = x.reshape(-1, 4 * 2 *312) 
+        x = x.reshape(-1, 4 * 2 *175) 
+        # x = x.reshape(-1, 4 * 2 *312) 
         # x = x.reshape(-1, 4 * 2 *2231)
         # x = x.reshape(-1, 4 * 2 *625)
         x = torch.sigmoid(self.fc1(x))

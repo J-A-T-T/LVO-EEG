@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import mne
-import pandas as pd
+import matplotlib.pyplot as plt
 
 def plot_eeg(data):
     sfreq = 220  # Hz
@@ -16,18 +16,17 @@ def plot_eeg(data):
     info.set_montage('standard_1020')
     pure_raw = mne.io.RawArray(np.transpose(FH), info)
     raw = pure_raw.copy()
-    raw.plot(scalings='auto')
+    # raw.plot(scalings='auto')
+    # plt.axis('off')
+    # plt.show()
 
-
-def plot_temp():
-    eeg_data = pd.read_csv("./data/feature_processing/001_EEG_baseline_stroke_study_updated.csv")
-    plt.figure(figsize=(10, 10))
-    plt.rcParams["figure.figsize"] = (10,10)
-
-    for column in eeg_data:
-        eeg_data_chosen = eeg_data[column] # choosing second channel 
-        x = np.linspace(0, len(eeg_data_chosen), len(eeg_data_chosen))
-        plt.plot(x, eeg_data_chosen)
-    plt.savefig("./data/eeg_chosen_channel.png")
-    plt.show()
-    
+    # raw_selection = raw['TP9', 0:5000]
+    # x = raw_selection[1]
+    # y = raw_selection[0].T
+    # plt.plot(x,y)
+    # plt.show()
+    df = raw.to_data_frame(picks=['eeg'], start=0, stop=5000)
+    # then save using df.to_csv(...), df.to_hdf(...), etc
+    print(df)
+    exit()
+    plt.savefig('eeg.png')

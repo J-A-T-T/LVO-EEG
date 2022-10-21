@@ -8,3 +8,4 @@ shap
 mne
 grad-cam
 eli5
+eeglib

@@ -1,74 +1,67 @@
-import argparse
-import csv
-from audioop import avg
-from math import e
-import pandas as pd
+from sched import scheduler
 import numpy as np
+import csv
+import pandas as pd
+from sklearn.metrics import roc_auc_score, precision_score, recall_score, accuracy_score
 from sklearn.model_selection import train_test_split, KFold
-from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
-
-import shap
-from sklearn.utils import shuffle
+import argparse
 
 import torch
-from utils.utils import CustomTrainDataset, CustomDataset 
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, ConcatDataset
 import torch.optim as optim
-from pytorch_grad_cam import GradCAM
-
-from models.lvoeegnet import LVOEEGNet
+from torch.autograd import Variable
+import torch.nn.functional as F
+import torch.optim as optim
+from utils.utils import CustomTrainDataset, CustomTestDataset 
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
 from utils.plot_acc import plot_acc
 from utils.plot_loss import plot_loss
 from utils.plot_custom_eval import plot_custom_eval
 from utils.plot_eeg import plot_eeg
+from pytorch_grad_cam import GradCAM
 
-def main(lr, num_epoch, batch_size):
+from sklearn.metrics import confusion_matrix
+
+
+# from models.eegnet import EEGNet
+from models.eegnetGyroACC import EEGNet
+
+def main(lr, epochs, batch_size):
 
     # Define hyperparameters
-    epochs = num_epoch
     k_folds = 6
     torch.manual_seed(42) #Tuning this parameter
 
     # Save the trained model
-    PATH = './pretrained/trained.pth'
+    PATH = './pretrained/eegnet.pth'
 
-    # Load the preprocessed eeg data
-    eeg = np.load('./data/processed_eeg.npy')
-    eeg = eeg.reshape(eeg.shape[0],1,eeg.shape[1], eeg.shape[2])
-    
-    #Load clinical data first
+    # Load the label 
     df = pd.read_csv('./data/df_onsite.csv')
-    result_file_name = 'result.csv'
+    lvo = df['lvo'].to_numpy()
+    # lvo = np.delete(lvo, 108)
+    lvo = np.float32(lvo)
+    
+    # Load the preprocessed eeg data
+    store = np.load('./data/processed_eeg.npy')
+    store = store.reshape(store.shape[0], 1, store.shape[1], store.shape[2])
+    store = np.float32(store)
 
-    # Separate data into training, validation and testing data
-    # clinical = df[['age', 'lams', 'nihss', 'time_elapsed', 'Male', 'Female']] 
-    clinical = df[['age', 'lams', 'time_elapsed', 'Male', 'Female']] # Eliminate the nihss score
-    features = clinical.columns
-    label = df['lvo']
+    # Split into training set and test set
 
-    label = label.to_numpy()
-    clinical = clinical.to_numpy()
+    x_train, x_test, y_train,  y_test = train_test_split(store, lvo, test_size=0.2, random_state=42)
 
-    # clinical = np.delete(clinical, 87,0)
-    # label = np.delete(label, 87)
-    label = label.reshape(label.shape[0],-1)
-    clinical_train, clinical_test, label_train, label_test = train_test_split(clinical, label, test_size = 0.2, shuffle=False)
-    eeg_train, eeg_test = train_test_split(eeg, test_size=0.2, shuffle=False)
-
-
-    # Define the custom dataset
-    train = CustomDataset(torch.FloatTensor(clinical_train), torch.FloatTensor(label_train), torch.FloatTensor(eeg_train))
-    # test = CustomTestDataset(torch.FloatTensor(clinical_test.values))
-    test = CustomDataset(torch.FloatTensor(clinical_test), torch.FloatTensor(label_test), torch.FloatTensor(eeg_test))
+    train = CustomTrainDataset(torch.FloatTensor(x_train), torch.FloatTensor(y_train))
+    test = CustomTrainDataset(torch.FloatTensor(x_test), torch.FloatTensor(y_test))
     dataset = ConcatDataset([train, test])
 
     # Create k-fold cross validator
     kfold = KFold(n_splits=k_folds, shuffle=True)
     result = {}
+
+    # trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+    # testloader = DataLoader(test, shuffle=False)
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
         print('--------')
@@ -78,98 +71,90 @@ def main(lr, num_epoch, batch_size):
         # Sample elements randomly from a given list of ids, no replacement.
         train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
         test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
-        trainloader = DataLoader(
+
+        trainloader = torch.utils.data.DataLoader(
                             dataset, 
                             batch_size=batch_size, sampler=train_subsampler)
-        testloader = DataLoader(
-                            dataset,batch_size=batch_size, 
-                             sampler=test_subsampler)
+        testloader = torch.utils.data.DataLoader(
+                            dataset,
+                            batch_size=batch_size, sampler=test_subsampler)
     
-        # Create a model
-        model = LVOEEGNet()
-        # Apply rest weights to prevent weight leaking
 
-        # Training on GPU if possible
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        # print(device)
-        model.to(device)
-
-        # Create a Loss function and optimizer
-        # criterion = nn.BCELoss()
-        optimizer = optim.Adam(model.parameters(), lr=lr)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-        # Train the model on training data
+        # Set up the model and optimizer
+        net = EEGNet(output=1)
         
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        print(device)
+        net.to(device)
+        criterion = nn.BCELoss()
+        optimizer = optim.Adam(net.parameters(), lr=lr)
+        
+
+       # Train the model on training data
+        net.train() 
         train_accs = []
         test_accs = []
         train_losses = []
         test_losses = []
         train_custom_evals = []
         test_custom_evals = []
-        model.train() 
+    
+
         for epoch in range(1, epochs+1):
-            
             train_loss = 0
             train_acc = 0
 
             label_train_list = []
             label_train_epoch = []
             for (idx, batch) in enumerate(trainloader):
-                inputs, labels, eegs = batch[0], batch[1], batch[2]
+                inputs, labels = batch[0], batch[1]
+                # wrap them in Variable
+                inputs, labels = Variable(inputs.to(device)), Variable(labels.to(device))
 
-                # Cast the data to be in correct format
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-                eegs = eegs.to(device)
-                
-                #Zero the parameter gradients
+                # zero the parameter gradients
                 optimizer.zero_grad()
 
-                # Forward + backward + optimize
-                outputs = model(inputs, eegs)
+                # forward + backward + optimize
+                outputs = net(inputs)
 
-                loss = custom_lost_function(outputs, labels, device)
-                # loss = criterion(outputs, labels)
-                
-                acc = binary_acc(outputs, labels)
+
+                loss = criterion(outputs, labels.unsqueeze(1))
+                acc = binary_acc(outputs, labels.unsqueeze(1))
 
                 loss.backward()
                 optimizer.step()
-
+                
                 label_train_tag = torch.round(outputs)
-
                 label_train_list.append(label_train_tag.detach().cpu().numpy())
                 label_train_epoch.append(labels.detach().cpu().numpy())
-
+                
                 train_loss += loss.item()
                 train_acc += acc.item()
-            
+
             label_train_list = [a.squeeze().tolist() for a in label_train_list]
             label_train_result = sum(label_train_list, [])
             label_train_epoch  = [a.squeeze().tolist() for a in label_train_epoch]
             label_train_epoch = sum(label_train_epoch, [])
             CM_train = confusion_matrix(label_train_epoch, label_train_result)
             custom_train_evaluation = evaluation_metric(CM_train)
-            # print('Epoch {}: | Train loss: {:.4f}'.format(epoch, train_loss/len(trainloader)))
-
-            # Test the model 
-            label_test_list = []
-            label_test_epoch = []
-            model.eval()
+            
+            
+            # Validation accuracy
+            net.eval()
             test_loss = 0
             test_acc = 0
+            label_test_list = []
+            label_test_epoch = []
             with torch.no_grad():
                 for (idx, data) in enumerate(testloader):
-                    test_inputs, test_labels, test_eegs = data[0], data[1], data[2]
+                    test_inputs, test_labels = data[0], data[1]
                     test_inputs = test_inputs.to(device)
                     test_labels = test_labels.to(device)
-                    test_eegs = test_eegs.to(device)
 
-                    test_outputs = model(test_inputs, test_eegs)
+                    test_outputs = net(test_inputs)
                     
-                    loss = custom_lost_function(test_outputs, test_labels, device)
-                    # loss = custom_lost_function(test_outputs, test_labels)
-                    acc = binary_acc(test_outputs, test_labels)
+                    loss = criterion(test_outputs, test_labels.unsqueeze(1))
+                    acc = binary_acc(test_outputs, test_labels.unsqueeze(1))
                     
                     label_test_tag = torch.round(test_outputs)
                     label_test_list.append(label_test_tag.cpu().numpy())
@@ -177,7 +162,7 @@ def main(lr, num_epoch, batch_size):
 
                     test_loss += loss.item()
                     test_acc += acc.item()
-                
+            
                 label_test_list = [a.squeeze().tolist() for a in label_test_list]
                 label_test_epoch = [a.squeeze().tolist() for a in label_test_epoch]
                 label_test_list = sum(label_test_list,[])
@@ -185,7 +170,6 @@ def main(lr, num_epoch, batch_size):
                 CM_test = confusion_matrix(label_test_epoch, label_test_list)
                 custom_test_evaluation = evaluation_metric(CM_test)
 
-            scheduler.step(test_loss)
             print('Epoch {}: | Train Loss: {:.4f} | Train Acc: {:.4f} | Train Custom Eval: {:.4f} | Test Loss: {:.4f} | Test Acc: {:.4f} | Test Custom Eval: {:.4f}'.format(epoch, train_loss/len(trainloader), train_acc/len(trainloader), custom_train_evaluation/len(trainloader),test_loss/len(testloader), test_acc/len(testloader), custom_test_evaluation/len(testloader)))
             train_accs.append(train_acc/len(trainloader))
             train_losses.append(train_loss/len(trainloader))
@@ -193,7 +177,7 @@ def main(lr, num_epoch, batch_size):
             test_losses.append(test_loss/len(testloader))
             train_custom_evals.append(custom_train_evaluation/len(trainloader))
             test_custom_evals.append(custom_test_evaluation/len(testloader))
-
+        
         avg_train_accs = sum(train_accs)/len(train_accs)
         avg_train_losses = sum(train_losses)/len(train_losses)
         avg_train_custom_eval = sum(train_custom_evals)/len(train_custom_evals)
@@ -221,38 +205,49 @@ def main(lr, num_epoch, batch_size):
     print("The average custom evaluation of {}-fold CV: {:.4f}".format(k_folds, avg_custom_eval))
 
     # Save model
-    torch.save(model.state_dict(), PATH)
+    torch.save(net.state_dict(), PATH)
 
     # Plot the accuracy, loss, and 
-    plot_loss(train_loss, test_loss, "Loss")
-    plot_acc(train_acc, test_acc, "Acc")
-    plot_custom_eval(train_custom_eval, test_custom_eval, "Custom Evaluation")
+    # plot_loss(train_loss, test_loss, "Loss")
+    # plot_acc(train_acc, test_acc, "Acc")
+    # plot_custom_eval(train_custom_eval, test_custom_eval, "Custom Evaluation")
 
-    with open('./results/result-eegnet-lvo.csv','w') as f:
+    with open('./results/result-eegnet.csv','w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow([avg_loss, avg_acc, avg_custom_eval])
     
+    
 
-    # Provide SHAP values: Try other explainer than GradientExplainer
-    # SHAP values represent a features's responsibility for a change in the model output 
-    # e = shap.GradientExplainer(model, torch.FloatTensor(clinical_train).to(device))
-    # shap_values = e.shap_values(torch.FloatTensor(clinical_test.values).to(device))
-    # print(shap_values)
-    # x_test_values = clinical_test.to_numpy()
-    # shap.summary_plot(shap_values, x_test_values, feature_names=features)
-
-    # Provide Grad-Cam
-    # instance_eeg = torch.squeeze(next(iter(testloader))[2]).detach().numpy()
-    # instance_input = torch.squeeze(next(iter(testloader))[0]).detach().numpy()
-    # print(instance_eeg.shape)
-    # plot_eeg(instance_eeg)
+    # Plot the accuracy and loss
+    # plot_acc_loss(train_accs, test_accs, train_losses, test_losses, "Acc and Loss")
     # plt.show()
 
-    # target_layers = [model.eegnet.fc1]
-    # cam = GradCAM(model=model, target_layers=target_layers)
-    # grayscale = cam(instance_eeg, instance_input)
+
+    # Plot the original EEG 
+    # example = torch.squeeze(next(iter(testloader))[0][1]).cpu().detach().numpy()
+    # example = next(iter(testloader))[0]
+    # print(example.size())
+    # print(example.shape)
+    # exit()
+    # plot_eeg(example)
+    # plt.show()
+
+    # target_layers = [net.fc1]
+    # cam = GradCAM(model=net,
+    #          target_layers=target_layers,
+    #          use_cuda=torch.cuda.is_available()) 
+    # example = torch.FloatTensor(example.reshape(1, 1, example.shape[0], example.shape[1]))
+    # grayscale = cam(example)
+    # print(example.shape)
+    # print(grayscale)
+
+    # net(example)
+
+    # Plot the predicted EEG
     
-    
+
+
+
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(y_pred)
 
@@ -260,32 +255,7 @@ def binary_acc(y_pred, y_test):
     acc = correct_results_sum/y_test.shape[0]
     acc = torch.round(acc * 100)
     
-    return acc
-
-# output is the predicted value
-def custom_lost_function(outputs, labels, device):
-    rounded_outputs = torch.round(outputs)
-
-    # confusion_vector = rounded_output / label
-
-    # true_positives = torch.sum(confusion_vector == 1)
-    # false_positives = torch.sum(confusion_vector == float('inf'))
-    # true_negatives = torch.sum(torch.isnan(confusion_vector))
-    # false_negatives = torch.sum(confusion_vector == 0)
-
-    # specificity = true_negatives / (true_negatives + false_positives + 1e-10)
-    # recall = true_positives / (true_positives + false_negatives + 1e-10)
-    # return_val = 1.0 - (0.1 * specificity + 0.9 * recall)
-
-    # Initialize all weight to 1 at first
-    weightArr = torch.ones(rounded_outputs.size()[0], 1)
-
-    for i in range(rounded_outputs.size()[0]):
-        # False negative when output = 0 but labels != output (i.e., label = 1, since label can only be in {0,1})
-        if (rounded_outputs[i][0] == 0) and (rounded_outputs[i][0] != labels[i][0]):
-            weightArr[i] = 4.0
-    modCriterion = nn.BCELoss(weight=weightArr.to(device))
-    return modCriterion(outputs, labels)
+    return acc 
 
 def evaluation_metric(CM):
     TN = CM[0][0]
@@ -299,7 +269,7 @@ def evaluation_metric(CM):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train model')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=200, help='Number of epoch')
+    parser.add_argument('--num_epoch', type=int, required=False, default=1, help='Number of epoch')
     parser.add_argument('--batch_size', type=int, required=False, default=4, help='Size of batch')
 
     args = parser.parse_args()
