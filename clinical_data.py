@@ -1,9 +1,7 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-df = pd.read_csv('MAESTRO_DATA.csv')
+df = pd.read_csv('./data/MAESTRO_DATA.csv')
 
 print(df.head(5))
 
@@ -29,10 +27,15 @@ df.to_csv('MAESTRO_DATA_CLEAN.csv', index=False)
 
 # gauge correlation between columns
 print(df.corr(method ='pearson')['LVO (incl. M2)'])
+df['stroke'].replace(2,1,inplace=True)
+df['stroke'].replace(3,1,inplace=True)
+df['stroke'].replace(4,1,inplace=True)
+df['stroke'].replace(5,1,inplace=True)
+df_subset = df[['age', 'Male', 'Female', 'lams', 'nihss', 'LVO (incl. M2)','time_elapsed','stroke']]
+df_subset = pd.DataFrame(df_subset)
 
-plt.figure(figsize=(14,8))
-df_subset = df[['age', 'Male', 'Female', 'lams', 'stroke', 'nihss', 'LVO (incl. M2)','time_elapsed']]
-corr = df_subset.corr()
-heatmap = sns.heatmap(corr, cmap="Blues")
-plt.show()
+
+df_subset.fillna(0, inplace=True)
+df_subset.to_csv('./data/df_onsite.csv')
+
 

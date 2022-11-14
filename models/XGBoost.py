@@ -36,7 +36,8 @@ def model(eeg_features, feature_extraction_method):
 
 
     clinical_features = pd.read_csv(r'./data/df_onsite.csv')
-    lvo = clinical_features['lvo']
+    stroke = clinical_features['stroke']
+    clinical_features = clinical_features.drop(['stroke'], axis=1)
     clinical_features = clinical_features.drop(['lvo'], axis=1)
 
 
@@ -55,7 +56,7 @@ def model(eeg_features, feature_extraction_method):
 
     # External CV
     outer_cv = KFold(n_splits=5, shuffle=True, random_state=42)
-    nested_score = cross_validate(grid, X=all_features, y=lvo, cv=outer_cv, scoring="accuracy")
+    nested_score = cross_validate(grid, X=all_features, y=stroke, cv=outer_cv, scoring="accuracy")
     
     print(nested_score)
     print(nested_score['test_score'].mean())
